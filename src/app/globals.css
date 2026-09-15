@@ -1,0 +1,276 @@
+@import "tailwindcss";
+
+@theme {
+  --color-emerald-50: #f5f3ff;
+  --color-emerald-100: #ede9fe;
+  --color-emerald-200: #ddd6fe;
+  --color-emerald-300: #c4b5fd;
+  --color-emerald-400: #a78bfa;
+  --color-emerald-500: #8b5cf6;
+  --color-emerald-600: #7c3aed;
+  --color-emerald-700: #6d28d9;
+  --color-emerald-800: #5b21b6;
+  --color-emerald-900: #4c1d95;
+}
+
+:root {
+  --color-primary: #7c3aed;
+  --color-primary-hover: #6d28d9;
+  --color-surface: #f8f7fc;
+  --color-surface-elevated: #ffffff;
+  --color-border: #e9e5f5;
+  --color-text: #1e1b4b;
+  --color-text-muted: #6b7280;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  /* Fondo del login ARC: foto de arquitectura moderna + capa oscura para legibilidad */
+  --login-bg:
+    linear-gradient(rgba(11, 6, 32, 0.55), rgba(11, 6, 32, 0.78)),
+    radial-gradient(ellipse 60% 50% at 50% 45%, rgba(11, 6, 32, 0.55), transparent 70%),
+    url("/login-bg.png");
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  height: 100%;
+  background-color: #0b0620;
+}
+
+body {
+  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: 100lvh;
+  overscroll-behavior-y: none;
+  background-color: transparent;
+  color: var(--color-text);
+}
+
+/* Fallback bajo el login (sobre todo PWA iOS). En escritorio el .login-page fixed lo cubre. */
+html.login-active,
+html.login-active body {
+  background-color: #0b0620;
+  background-image: var(--login-bg);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: scroll;
+}
+
+/*
+ * Pantalla completa del viewport (escritorio + móvil).
+ * Importante: NO usar -webkit-fill-available aquí en escritorio —
+ * en Chrome pisa 100vh y el fondo solo llega al alto del formulario (costura horizontal).
+ */
+.login-page {
+  position: fixed;
+  inset: 0;
+  isolation: isolate;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: 100lvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  background-color: #0b0620;
+  background-image: var(--login-bg);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+}
+
+.login-page__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/*
+ * Solo PWA móvil (.login-ios-pwa): extiende el mismo fondo bajo el home indicator.
+ * No cambia colores ni figuras — solo altura / cobertura. Escritorio no usa esta clase.
+ */
+html.login-ios-pwa {
+  background-color: #0b0620;
+  background-image: var(--login-bg);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-attachment: scroll;
+  min-height: calc(
+    100% + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px)
+  );
+}
+
+html.login-ios-pwa body {
+  background-color: #0b0620;
+  background-image: var(--login-bg);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+}
+
+html.login-ios-pwa .login-page {
+  /* Mismo diseño; crece hacia abajo para cubrir la zona del home indicator */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+  height: calc(100% + env(safe-area-inset-bottom, 0px));
+  min-height: calc(100vh + env(safe-area-inset-bottom, 0px));
+  min-height: calc(100dvh + env(safe-area-inset-bottom, 0px));
+  background-size: 100% 100%;
+}
+
+@supports (-webkit-touch-callout: none) {
+  html.login-ios-pwa {
+    height: -webkit-fill-available;
+  }
+
+  html.login-ios-pwa .login-page {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Dashboard y pantallas con UI clara: respetan notch / home indicator */
+.app-shell {
+  min-height: 100dvh;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+  background-color: var(--color-surface);
+  box-sizing: border-box;
+}
+
+@keyframes blink-red {
+  0%,
+  100% {
+    background-color: rgb(254 242 242);
+    border-left-color: rgb(239 68 68);
+  }
+  50% {
+    background-color: rgb(254 226 226);
+    border-left-color: rgb(220 38 38);
+  }
+}
+
+.animate-blink-red {
+  animation: blink-red 1s ease-in-out infinite;
+}
+
+@keyframes pulse-attention {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+.animate-pulse-attention {
+  animation: pulse-attention 1.1s ease-in-out infinite;
+}
+
+@keyframes blink-button-red {
+  0%,
+  100% {
+    background-color: rgb(220 38 38);
+  }
+  50% {
+    background-color: rgb(185 28 28);
+  }
+}
+
+.animate-blink-button-red {
+  animation: blink-button-red 1s ease-in-out infinite;
+}
+
+@keyframes blink-line-dot {
+  0%,
+  100% {
+    background-color: rgb(220 38 38);
+    box-shadow: 0 0 0 0 rgb(239 68 68 / 0.85);
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    background-color: rgb(127 29 29);
+    box-shadow: 0 0 8px 3px rgb(239 68 68 / 0.95);
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.animate-blink-line-dot {
+  animation: blink-line-dot 0.9s ease-in-out infinite;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.25s ease-out;
+}
+
+@keyframes blink-violet-match {
+  0%,
+  100% {
+    background-color: rgb(245 243 255);
+  }
+  50% {
+    background-color: rgb(196 181 253);
+  }
+}
+
+.animate-blink-violet-match {
+  animation: blink-violet-match 0.65s ease-in-out 4;
+}
+
+.bg-search-match {
+  background-color: rgb(237 233 254);
+}
+
+@keyframes blink-scroll-hint {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(3px);
+  }
+}
+
+.animate-blink-scroll-hint {
+  animation: blink-scroll-hint 0.55s ease-in-out 3;
+}
+
+.app-shell {
+  height: 100dvh;
+  max-height: 100dvh;
+}

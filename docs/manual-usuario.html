@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manual de usuario · Agente WhatsApp</title>
+  <style>
+    :root {
+      --bg: #f6f4fb;
+      --surface: #ffffff;
+      --ink: #1e1b4b;
+      --muted: #64748b;
+      --line: #e9e5f5;
+      --violet: #7c3aed;
+      --violet-soft: #ede9fe;
+      --pink: #c2185b;
+      --green: #059669;
+      --amber: #d97706;
+      --blue: #2563eb;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(30, 27, 75, 0.08);
+      --nav-w: 260px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse 80% 50% at 10% -10%, rgba(124, 58, 237, 0.12), transparent 55%),
+        radial-gradient(ellipse 60% 40% at 100% 0%, rgba(194, 24, 91, 0.08), transparent 50%),
+        var(--bg);
+      line-height: 1.55;
+    }
+
+    a { color: var(--violet); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: var(--nav-w) 1fr;
+      min-height: 100vh;
+    }
+
+    /* —— Sidebar —— */
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: calc(1.25rem + var(--safe-top)) 1rem 1.25rem;
+      border-right: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      margin-bottom: 1.25rem;
+      padding: 0.25rem 0.5rem 1rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand strong {
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+    }
+    .brand span {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .nav-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .nav-list a {
+      display: block;
+      padding: 0.55rem 0.7rem;
+      border-radius: 10px;
+      color: var(--ink);
+      font-size: 0.9rem;
+      text-decoration: none;
+    }
+    .nav-list a:hover,
+    .nav-list a.active {
+      background: var(--violet-soft);
+      color: var(--violet);
+      text-decoration: none;
+    }
+
+    .mobile-bar {
+      display: none;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      padding: calc(0.75rem + var(--safe-top)) 1rem 0.75rem;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .mobile-bar strong { font-size: 0.95rem; }
+    .menu-btn {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 0.45rem 0.7rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    /* —— Content —— */
+    .content {
+      padding: 1.75rem 1.5rem 3.5rem;
+      max-width: 920px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .hero {
+      background: linear-gradient(145deg, #1e1b4b 0%, #4c1d95 55%, #7c3aed 100%);
+      color: #fff;
+      border-radius: 22px;
+      padding: 1.75rem 1.5rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -40px;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .hero h1 {
+      margin: 0 0 0.5rem;
+      font-size: clamp(1.45rem, 4vw, 2rem);
+      letter-spacing: -0.03em;
+      position: relative;
+    }
+    .hero p {
+      margin: 0;
+      max-width: 38rem;
+      color: rgba(255, 255, 255, 0.88);
+      position: relative;
+      font-size: 0.98rem;
+    }
+    .hero .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      position: relative;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.28rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .pill-light { background: rgba(255,255,255,0.16); color: #fff; }
+    .pill-admin { background: #fce7f3; color: #9d174d; }
+    .pill-atencion { background: #dbeafe; color: #1d4ed8; }
+    .pill-ambos { background: #d1fae5; color: #047857; }
+    .pill-tip { background: var(--violet-soft); color: var(--violet); }
+
+    section {
+      scroll-margin-top: 5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 1.1rem 1.2rem 0.85rem;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #faf8ff, #fff);
+    }
+    .card-head h2 {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+    .card-head p {
+      margin: 0.35rem 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .card-body { padding: 1rem 1.2rem 1.25rem; }
+
+    .icon-badge {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      background: var(--violet-soft);
+      color: var(--violet);
+      font-size: 1.2rem;
+    }
+
+    .steps {
+      display: grid;
+      gap: 0.75rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: step;
+    }
+    .steps li {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem;
+      align-items: start;
+      padding: 0.85rem;
+      border-radius: 12px;
+      background: #faf8ff;
+      border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step;
+      content: counter(step);
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: var(--violet);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+    }
+    .steps strong { display: block; margin-bottom: 0.15rem; }
+    .steps span { color: var(--muted); font-size: 0.9rem; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+    .feature {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.9rem;
+      background: #fff;
+    }
+    .feature h3 {
+      margin: 0 0 0.35rem;
+      font-size: 0.95rem;
+    }
+    .feature p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .feature .who { margin-top: 0.65rem; }
+
+    .callout {
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+      margin-top: 0.9rem;
+      font-size: 0.9rem;
+    }
+    .callout-tip {
+      background: #f5f3ff;
+      border: 1px solid #ddd6fe;
+      color: #4c1d95;
+    }
+    .callout-warn {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+    }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      margin-top: 0.65rem;
+    }
+    details summary {
+      cursor: pointer;
+      padding: 0.8rem 1rem;
+      font-weight: 600;
+      list-style: none;
+    }
+    details summary::-webkit-details-marker { display: none; }
+    details summary::after {
+      content: "+";
+      float: right;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    details[open] summary::after { content: "−"; }
+    details .detail-body {
+      padding: 0 1rem 1rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    details ul { margin: 0.4rem 0 0; padding-left: 1.1rem; }
+    details li { margin: 0.25rem 0; }
+
+    .role-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .role-table th,
+    .role-table td {
+      text-align: left;
+      padding: 0.7rem 0.6rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    .role-table th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .yes { color: var(--green); font-weight: 700; }
+    .no { color: #94a3b8; }
+
+    .footer-note {
+      margin-top: 2rem;
+      padding: 1rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    /* Mobile nav drawer */
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.35);
+      z-index: 45;
+    }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .mobile-bar { display: flex; }
+      .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: min(86vw, 300px);
+        z-index: 50;
+        transform: translateX(-105%);
+        transition: transform 0.22s ease;
+        box-shadow: 8px 0 30px rgba(0,0,0,0.12);
+      }
+      body.nav-open .sidebar { transform: translateX(0); }
+      body.nav-open .sidebar-backdrop { display: block; }
+      .content { padding: 1.1rem 1rem 3rem; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .card-head { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar-backdrop" id="backdrop" aria-hidden="true"></div>
+
+  <div class="mobile-bar">
+    <strong>Manual de usuario</strong>
+    <button type="button" class="menu-btn" id="menuBtn" aria-expanded="false">Menú</button>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <strong>Agente WhatsApp</strong>
+        <span>Manual para usuarios finales · Borrador</span>
+      </div>
+      <nav aria-label="Contenido">
+        <ul class="nav-list">
+          <li><a href="#inicio">Inicio rápido</a></li>
+          <li><a href="#roles">Roles (Admin / Atención)</a></li>
+          <li><a href="#acceso">Entrar a la app (login y 2FA)</a></li>
+          <li><a href="#whatsapp">Conectar WhatsApp</a></li>
+          <li><a href="#chats">Chats y atención</a></li>
+          <li><a href="#modo">Modo IA y modo humano</a></li>
+          <li><a href="#herramientas">Herramientas del chat</a></li>
+          <li><a href="#residentes">Residentes y condominios</a></li>
+          <li><a href="#metricas">Métricas</a></li>
+          <li><a href="#admin">Panel de administración</a></li>
+          <li><a href="#pwa">App en el celular (PWA)</a></li>
+          <li><a href="#tips">Consejos y problemas comunes</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <header class="hero" id="inicio">
+        <h1>Manual de usuario</h1>
+        <p>
+          Esta guía explica, paso a paso, cómo usar el panel de atención por WhatsApp:
+          chats, inteligencia artificial, residentes y configuración.
+          Está pensada para el día a día, no para técnicos.
+        </p>
+        <div class="meta">
+          <span class="pill pill-light">Borrador v1</span>
+          <span class="pill pill-light">Lectura ~10 min</span>
+          <span class="pill pill-light">Móvil y escritorio</span>
+        </div>
+      </header>
+
+      <!-- Roles -->
+      <section id="roles" class="card">
+        <div class="card-head">
+          <div>
+            <h2>1. Roles: ¿quién puede hacer qué?</h2>
+            <p>Hay dos tipos de cuenta. El color de las etiquetas te indica el alcance.</p>
+          </div>
+          <div class="icon-badge" aria-hidden="true">👤</div>
+        </div>
+        <div class="card-body">
+          <div class="grid-2">
+            <article class="feature">
+              <h3>Administrador</h3>
+              <p>Configura el sistema, usuarios, IA, documentos, métricas y condominios.</p>
+              <div class="who"><span class="pill pill-admin">Admin</span></div>
+            </article>
+            <article class="feature">
+              <h3>Atención</h3>
+              <p>Atiende chats de las líneas que le asignaron. No ve el panel de configuración completa.</p>
+              <div class="who"><span class="pill pill-atencion">Atención</span></div>
+            </article>
+          </div>
+
+          <div style="overflow-x:auto; margin-top:1rem;">
+            <table class="role-table">
+              <thead>
+                <tr>
+                  <th>Función</th>
+                  <th>Admin</th>
+                  <th>Atención</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Responder chats / tomar conversación</td><td class="yes">Sí</td><td class="yes">Sí*</td></tr>
+                <tr><td>Cambiar modo IA ↔ humano</td><td class="yes">Sí</td><td class="yes">Sí*</td></tr>
+                <tr><td>Ver métricas</td><td class="yes">Sí</td><td class="no">No</td></tr>
+                <tr><td>Residentes y condominios</td><td class="yes">Sí</td><td class="no">No</td></tr>
+                <tr><td>Panel Admin (usuarios, FAQ, horario…)</td><td class="yes">Sí</td><td class="no">No</td></tr>
+                <tr><td>Conectar / desconectar líneas WhatsApp</td><td class="yes">Sí</td><td class="no">Espera al admin</td></tr>
+                <tr><td>Borrar conversaciones</td><td class="yes">Sí</td><td class="no">No</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="callout callout-tip">* Atención solo ve las líneas WhatsApp que el administrador le asignó.</p>
+        </div>
+      </section>
+
+      <!-- Acceso -->
+      <section id="acceso" class="card">
+        <div class="card-head">
+          <div>
+            <h2>2. Entrar a la aplicación</h2>
+            <p>Login con usuario, contraseña y código del autenticador (2FA).</p>
+          </div>
+          <div class="icon-badge" aria-hidden="true">🔐</div>
+        </div>
+        <div class="card-body">
+          <ol class="steps">
+            <li>
+              <div>
+                <strong>Abre la dirección del sistema</strong>
+                <span>En el navegador o desde el icono de la app en el celular (PWA).</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Escribe usuario y contraseña</strong>
+                <span>Pulsa <em>Sign in</em>. La contraseña no se guarda en la pantalla; se valida en el servidor.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Confirma el código 2FA</strong>
+                <span>Abre Google Authenticator / Authy y escribe el código de 6 dígitos. La primera vez te pedirán escanear un QR para activarlo.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Ya estás dentro</strong>
+                <span>Tu sesión dura varias horas. Si pasa mucho tiempo sin usarla, tendrás que entrar de nuevo.</span>
+              </div>
+            </li>
+          </ol>
+          <div class="callout callout-warn">
+            No compartas tu código 2FA ni tu contraseña. Cada persona debe tener su propia cuenta.
+          </div>
+        </div>
+      </section>
+
+      <!-- WhatsApp -->
+      <section id="whatsapp" class="card">
+        <div class="card-head">
+          <div>
+            <h2>3. Conectar WhatsApp (líneas)</h2>
+            <p>Cada “línea” es un número de WhatsApp que atiende el sistema.</p>
+          </div>
+          <div class="icon-badge" aria-hidden="true">📱</div>
+        </div>
+        <div class="card-body">
+          <div class="who" style="margin-bottom:0.75rem;">
+            <span class="pill pill-admin">Admin conecta</span>
+            <span class="pill pill-atencion">Atención espera</span>
+          </div>
+          <ol class="steps">
+            <li>
+              <div>
+                <strong>Espera el código QR</strong>
+                <span>En la tarjeta de la línea verás el estado: Desconectada → Esperando QR → Conectando → Conectada.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Escanea con el celular</strong>
+                <span>WhatsApp → Dispositivos vinculados → Vincular dispositivo. Apunta al QR de la pantalla.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Continúa al panel</strong>
+                <span>Cuando al menos una línea esté conectada, puedes entrar a los chats. Arriba verás pastillas con el nombre y estado de cada línea.</span>
+              </div>
+            </li>
+          </ol>
+          <details>
+            <summary>Si el QR no aparece o se queda “Conectando…”</summary>
+            <div class="detail-body">
+              <ul>
+                <li>Recarga la página y vuelve a intentar.</li>
+                <li>Avisa al administrador: puede desconectar y volver a vincular la línea.</li>
+                <li>Revisa que el celular tenga internet y WhatsApp actualizado.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <!-- Chats -->
+      <section id="chats" class="card">
+        <div class="card-head">
+          <div>
+            <h2>4. Chats y atención diaria</h2>
+            <p>La vista principal: lista de conversaciones a la izquierda y el chat a la derecha.</p>
+          </div>
+          <div class="icon-badge" aria-hidden="true">💬</div>
+        </div>
+        <div class="card-body">
+          <div class="grid-2">
+            <article class="feature">
+              <h3>Lista de conversaciones</h3>
+              <p>Elige un chat. Puedes filtrar por línea WhatsApp. Los no leídos se marcan para que no se te escapen.</p>
+              <div class="who"><span class="pill pill-ambos">Ambos</span></div>
+            </article>
+            <article class="feature">
+              <h3>Ventana del chat</h3>
+              <p>Ves los mensajes del residente, de la IA y de los asesores. En celular, al abrir un chat la lista se oculta para aprovechar la pantalla.</p>
+              <div class="who"><span class="pill pill-ambos">Ambos</span></div>
+            </article>
+            <article class="feature">
+              <h3>Tomar chat</h3>
+              <p>Pulsa <strong>Tomar chat</strong> para asignártelo. Así el equipo sabe quién lo está atendiendo.</p>
+              <div class="who"><span class="pill pill-ambos">Ambos</span></div>
+            </article>
+            <article class="feature">
+              <h3>Cerrar y encuestar</h3>
+              <p>Al terminar, <strong>Cerrar y encuestar</strong> cierra el caso y puede enviar una encuesta de satisfacción al residente.</p>
+              <div class="who"><span class="pill pill-ambos">Ambos</span></div>
+            </article>
+          </div>
+          <div class="callout callout-tip">
+            En la barra superior: icono de chat = conversaciones · personas = residentes · gráfica = métricas (solo admin) · engranaje = administración (solo admin).
+          </div>
+        </div>
+      </section>
+
+      <!-- Modo -->
+      <section id="modo" class="card">
+        <div class="card-head">
+          <div>
+            <h2>5. Modo IA y modo humano</h2>
+            <p>Cada conversación puede atenderla el bot o una persona.</p>
+          </div>
+          <div class="icon-badge" aria-hidden="true">🤖</div>
+        </div>
+        <div class="card-body">
+          <div class="grid-2">
+            <article class="feature">
+              <h3>Modo IA</h3>
+              <p>El asistente responde solo usando FAQ, reglamentos y reglas configuradas. Ideal para dudas frecuentes.</p>
+              <div class="who"><span class="pill pill-tip">Etiqueta: IA</span></div>
+            </article>
+            <article class="feature">
+              <h3>Modo humano (AT)</h3>
+              <p>El bot deja de contestar ese chat. Tú escribes las respuestas. Úsalo cuando el caso es delicado o complejo.</p>
+              <div class="who"><span class="pill pill-tip">Etiqueta: AT</span></div>
+            </article>
+          </div>
+          <p class="callout callout-tip">
+            Cambia el interruptor <strong>IA / AT</strong> en el chat. Si tomas el chat en humano, asegúrate de responder a tiempo para no dejar al residente esperando.
+          </p>
+        </div>
+      </section>
+
+      <!-- Herramientas -->
+      <section id="herramientas" class="card">
+        <div class="card-head">
+          <div>
+            <h2>6. Herramientas dentro del chat</h2>
+            <p>Extras para organizar el trabajo sin confundir al residente.</p>
+          </div>
+          <div class="icon-badge" aria-hidden="true">🧰</div>
+        </div>
+        <div class="card-body">
+          <div class="grid-2">
+            <article class="feature">
+              <h3>Etiquetas</h3>
+              <p>Colores para clasificar (cobranza, mantenimiento, etc.). Ayudan a filtrar y reportar.</p>
+            </article>
+            <article class="feature">
+              <h3>Notas internas</h3>
+              <p>Apuntes solo para el equipo. <strong>No se envían</strong> al residente por WhatsApp.</p>
+            </article>
+            <article class="feature">
+              <h3>Respuestas rápidas</h3>
+              <p>Textos prearmados (saludos, horarios, etc.) para escribir más rápido.</p>
+            </article>
+            <article class="feature">
+              <h3>Resumen para asesor</h3>
+              <p>Resumen automático del hilo para ponerte al día si heredaste el chat.</p>
+            </article>
+            <article class="feature">
+              <h3>Archivos e imágenes</h3>
+              <p>Puedes ver medios que envió el residente (fotos, documentos) desde el hilo.</p>
+            </article>
+            <article class="feature">
+              <h3>Borrar conversación</h3>
+              <p>Solo administradores. Úsalo con cuidado: elimina el historial del panel.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Residentes -->
+      <section id="residentes" class="card">
+        <div class="card-head">
+          <div>
+            <h2>7. Residentes y condominios</h2>
+            <p>Módulo para el padrón, condominios, documentos y servicios.</p>
+          </div>
+          <div class="icon-badge" aria-hidden="true">🏘️</div>
+        </div>
+        <div class="card-body">
+          <div class="who" style="margin-bottom:0.75rem;">
+            <span class="pill pill-admin">Solo Admin</span>
+          </div>
+          <div class="grid-2">
+            <article class="feature">
+              <h3>Pestaña Residentes</h3>
+              <p>Busca, crea y edita residentes. Importa o exporta CSV para cargas masivas.</p>
+            </article>
+            <article class="feature">
+              <h3>Pestaña Condominios</h3>
+              <p>Alta de condominios, cantidad de residentes y accesos a paneles por condominio.</p>
+            </article>
+            <article class="feature">
+              <h3>Documentos / reglamentos</h3>
+              <p>Sube PDFs del condominio y reindexa para que la IA pueda consultarlos al responder.</p>
+            </article>
+            <article class="feature">
+              <h3>Servicios programados</h3>
+              <p>Define tipos de servicio (agua, jardinería…) y agenda fechas por condominio.</p>
+            </article>
+            <article class="feature">
+              <h3>Cuentas Comunidad Feliz</h3>
+              <p>Vincula el Community ID y sincroniza información de cuentas cuando esté configurado.</p>
+            </article>
+            <article class="feature">
+              <h3>Detalle del residente</h3>
+              <p>Ficha con datos de contacto, unidad, saldos o servicios (según lo capturado).</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Métricas -->
+      <section id="metricas" class="card">
+        <div class="card-head">
+          <div>
+            <h2>8. Métricas</h2>
+            <p>Indicadores de atención y del módulo de residentes.</p>
+          </div>
+          <div class="icon-badge" aria-hidden="true">📊</div>
+        </div>
+        <div class="card-body">
+          <div class="who" style="margin-bottom:0.75rem;">
+            <span class="pill pill-admin">Solo Admin</span>
+          </div>
+          <ul style="margin:0; padding-left:1.15rem; color:var(--muted);">
+            <li>Volumen de conversaciones y cuántas resolvió la IA vs un humano.</li>
+            <li>Uso de FAQ y respuestas indexadas (reglamento).</li>
+            <li>Vista de portafolio: residentes y condominios activos.</li>
+          </ul>
+          <p class="callout callout-tip">Entra con el icono de gráfica en la barra superior. Los números se actualizan al refrescar o al cambiar de vista.</p>
+        </div>
+      </section>
+
+      <!-- Admin -->
+      <section id="admin" class="card">
+        <div class="card-head">
+          <div>
+            <h2>9. Panel de administración</h2>
+            <p>Engranaje ⚙️. Aquí se configura el “cerebro” y la operación del bot.</p>
+          </div>
+          <div class="icon-badge" aria-hidden="true">⚙️</div>
+        </div>
+        <div class="card-body">
+          <div class="who" style="margin-bottom:0.75rem;">
+            <span class="pill pill-admin">Solo Admin</span>
+          </div>
+
+          <details open>
+            <summary>General</summary>
+            <div class="detail-body">Nombre del negocio, logo de inicio de sesión y datos básicos de la marca.</div>
+          </details>
+          <details>
+            <summary>Usuarios</summary>
+            <div class="detail-body">Alta de asesores y admins, contraseñas, rol y líneas WhatsApp permitidas para cada persona de atención.</div>
+          </details>
+          <details>
+            <summary>IA / Menú</summary>
+            <div class="detail-body">Instrucciones y menú que usa el asistente para orientar al residente.</div>
+          </details>
+          <details>
+            <summary>Cierre automático</summary>
+            <div class="detail-body">Reglas para cerrar chats inactivos y no dejar conversaciones eternas abiertas.</div>
+          </details>
+          <details>
+            <summary>FAQ</summary>
+            <div class="detail-body">Preguntas frecuentes que la IA responde primero, antes de buscar en PDFs.</div>
+          </details>
+          <details>
+            <summary>Horario y festivos</summary>
+            <div class="detail-body">Define cuándo hay atención y días festivos (mensajes fuera de horario).</div>
+          </details>
+          <details>
+            <summary>Documentos</summary>
+            <div class="detail-body">Gestión e indexación de documentos que alimentan las respuestas del bot.</div>
+          </details>
+          <details>
+            <summary>Etiquetas y respuestas rápidas</summary>
+            <div class="detail-body">Catálogo de etiquetas de color y textos cortos reutilizables en el chat.</div>
+          </details>
+          <details>
+            <summary>Apariencia</summary>
+            <div class="detail-body">Colores de burbujas del chat (usuario, IA, asesor) para personalizar el panel.</div>
+          </details>
+          <details>
+            <summary>Auditoría</summary>
+            <div class="detail-body">Historial de acciones importantes (quién creó un usuario, cambió ajustes, etc.).</div>
+          </details>
+          <details>
+            <summary>Sistema y líneas</summary>
+            <div class="detail-body">Estado de las líneas WhatsApp, desconexión controlada y opciones de sistema.</div>
+          </details>
+        </div>
+      </section>
+
+      <!-- PWA -->
+      <section id="pwa" class="card">
+        <div class="card-head">
+          <div>
+            <h2>10. Usarla como app en el celular</h2>
+            <p>Puedes “instalar” el panel en la pantalla de inicio (PWA).</p>
+          </div>
+          <div class="icon-badge" aria-hidden="true">📲</div>
+        </div>
+        <div class="card-body">
+          <ol class="steps">
+            <li>
+              <div>
+                <strong>Abre el sitio en Safari (iPhone) o Chrome (Android)</strong>
+                <span>Inicia sesión normalmente.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Añadir a pantalla de inicio</strong>
+                <span>iPhone: Compartir → Agregar a pantalla de inicio. Android: menú ⋮ → Instalar app / Agregar a inicio.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Notificaciones (si el sistema lo pide)</strong>
+                <span>Acepta el aviso del banner para enterarte de chats nuevos mientras usas el panel.</span>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- Tips -->
+      <section id="tips" class="card">
+        <div class="card-head">
+          <div>
+            <h2>11. Consejos y problemas comunes</h2>
+            <p>Atajos mentales para no atascarse.</p>
+          </div>
+          <div class="icon-badge" aria-hidden="true">💡</div>
+        </div>
+        <div class="card-body">
+          <details open>
+            <summary>No me deja entrar / pide 2FA otra vez</summary>
+            <div class="detail-body">Revisa la hora del celular (el código 2FA depende del reloj). Si cambiaste de teléfono, pide al admin reconfigurar tu 2FA.</div>
+          </details>
+          <details>
+            <summary>No veo chats de una línea</summary>
+            <div class="detail-body">Tu usuario de atención probablemente no tiene esa línea asignada. Lo configura el administrador en Usuarios.</div>
+          </details>
+          <details>
+            <summary>La IA responde mal o no encuentra el reglamento</summary>
+            <div class="detail-body">Pide al admin revisar FAQ, documentos indexados y el menú de IA. Mientras tanto, pasa el chat a modo humano.</div>
+          </details>
+          <details>
+            <summary>WhatsApp se desconectó</summary>
+            <div class="detail-body">Vuelve a la pantalla de líneas, genera QR y vincula de nuevo. Evita vincular el mismo número en muchos dispositivos a la vez.</div>
+          </details>
+          <details>
+            <summary>Cerrar sesión</summary>
+            <div class="detail-body">Usa la opción de salir / cerrar sesión en el encabezado o panel admin para no dejar la cuenta abierta en equipos compartidos.</div>
+          </details>
+        </div>
+      </section>
+
+      <p class="footer-note">
+        Borrador local · Manual de usuario · Agente WhatsApp<br />
+        Dinos qué cambiar en diseño, tono o secciones y lo ajustamos.
+      </p>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      const body = document.body;
+      const btn = document.getElementById("menuBtn");
+      const backdrop = document.getElementById("backdrop");
+      const links = document.querySelectorAll(".nav-list a");
+
+      function closeNav() {
+        body.classList.remove("nav-open");
+        if (btn) btn.setAttribute("aria-expanded", "false");
+      }
+      function toggleNav() {
+        const open = body.classList.toggle("nav-open");
+        if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+      }
+
+      btn?.addEventListener("click", toggleNav);
+      backdrop?.addEventListener("click", closeNav);
+      links.forEach((a) => a.addEventListener("click", closeNav));
+
+      // Active section highlight
+      const sections = [...document.querySelectorAll("main section[id], main header[id]")];
+      const navByHref = new Map(
+        [...links].map((a) => [a.getAttribute("href"), a])
+      );
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            const id = "#" + entry.target.id;
+            links.forEach((a) => a.classList.remove("active"));
+            navByHref.get(id)?.classList.add("active");
+          });
+        },
+        { rootMargin: "-35% 0px -55% 0px", threshold: 0.01 }
+      );
+      sections.forEach((s) => io.observe(s));
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+---
+description: Tras cada cambio de código, auditar con la skill ciberseguridad (delta).
+alwaysApply: true
+---
+
+# Ciberseguridad post-cambio
+
+Al terminar **cualquier** pedido que cree o edite código (app, API, nginx, SQL, auth, env de ejemplo, storage):
+
+1. Leer la skill `ciberseguridad`:
+   - repo: `.cursor/skills/ciberseguridad/SKILL.md` + `checklist.md`
+   - o global: `~/.cursor/skills/ciberseguridad/`
+2. Auditar **solo la superficie del diff** (puntos 1–26 que apliquen). No hacer el informe largo salvo que el usuario pida «ciberseguridad» o el cambio sea auth, secretos, headers, login o uploads.
+3. Si el cambio introduce un **RIESGO** nuevo: **arreglarlo antes** de dar por cerrado, o bloquear y decirlo explícito.
+4. En la respuesta final, bloque breve:
+
+```text
+Ciberseguridad (delta): <archivos>. Puntos <n>: OK/PARCIAL/RIESGO. <acción o nada>.
+```
+
+5. Typo, docs o i18n puro: una línea «sin impacto de seguridad».
+6. Sin secretos en el chat ni en el handoff.
+
+Esto no sustituye un audit completo cuando el usuario nombra la skill.
