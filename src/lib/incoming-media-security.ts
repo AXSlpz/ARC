@@ -9,7 +9,35 @@ export const INCOMING_UPLOADS_DIR = path.resolve(
   "incoming"
 );
 
-export const MAX_INCOMING_IMAGE_BYTES = 10 * 1024 * 1024;
+export const PORTAL_FILE_LIMIT_BYTES = 10 * 1024 * 1024;
+
+export const FILE_TOO_LARGE_MESSAGE =
+  "Ese archivo pesa más de 10 MB, que es el límite del portal. Envíalo más ligero o súbelo desde tu portal si no pasa de 10 MB.";
+
+export function declaredByteLength(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "bigint") {
+    const asNumber = Number(value);
+    return Number.isFinite(asNumber) ? asNumber : null;
+  }
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    const asNumber = Number(value);
+    return Number.isFinite(asNumber) ? asNumber : null;
+  }
+  if (value && typeof value === "object") {
+    const raw = String(value);
+    if (/^\d+$/.test(raw)) {
+      const asNumber = Number(raw);
+      return Number.isFinite(asNumber) ? asNumber : null;
+    }
+  }
+  return null;
+}
+
+export function exceedsPortalFileLimit(value: unknown): boolean {
+  const bytes = declaredByteLength(value);
+  return bytes != null && bytes > PORTAL_FILE_LIMIT_BYTES;
+}
 
 export const BLOCKED_MEDIA_MESSAGES = {
   pdf:
@@ -71,7 +99,7 @@ export function assertIncomingImageBuffer(buffer: Buffer): ImageFormat {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
     throw new IncomingMediaError("Archivo vacío", "invalid_format");
   }
-  if (buffer.length > MAX_INCOMING_IMAGE_BYTES) {
+  if (buffer.length > PORTAL_FILE_LIMIT_BYTES) {
     throw new IncomingMediaError("Imagen demasiado grande", "too_large");
   }
 

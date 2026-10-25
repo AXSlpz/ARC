@@ -393,7 +393,7 @@ export function ConversationPanel({
       });
       if (res.ok) {
         setSummary(null);
-        toast("Encuesta de satisfacción enviada al cliente", "success");
+        toast("Conversación cerrada", "success");
         onConversationClosed?.();
       } else {
         toast("No se pudo cerrar la conversación", "error");
@@ -487,9 +487,9 @@ export function ConversationPanel({
         onClick={handleCloseSurvey}
         disabled={closingSurvey}
         className={actionBtnClass}
-        title="Cerrar y encuestar"
+        title="Cerrar conversación"
       >
-        {closingSurvey ? "Enviando encuesta…" : "Cerrar y encuestar"}
+        {closingSurvey ? "Cerrando…" : "Cerrar conversación"}
       </button>
       {canDelete &&
         (confirmDelete ? (

@@ -13,6 +13,7 @@ import {
   setTicketAwaiting,
 } from "../portal/tickets.js";
 import { storeAttachment } from "../portal/attachments.js";
+import { ticketRequestTitle } from "../portal/types.js";
 import {
   clearWaTicketState,
   getWaTicketState,
@@ -54,7 +55,17 @@ function looksAboutTicket(text: string): boolean {
 }
 
 function folioList(tickets: Ticket[]): string {
-  return tickets.map((t) => `• ${t.folio} (${t.ticketTypeName ?? "solicitud"})`).join("\n");
+  const kind: Record<string, string> = {
+    nuevo: "Nueva",
+    en_revision: "En revisión",
+    autorizado: "Autorizada",
+  };
+  return tickets
+    .map(
+      (t) =>
+        `• *${t.folio}* — ${ticketRequestTitle(t)} (${kind[t.status] ?? t.status})`
+    )
+    .join("\n");
 }
 
 function statusSummary(t: Ticket): string {
@@ -63,10 +74,8 @@ function statusSummary(t: Ticket): string {
     en_revision: "En revisión",
     autorizado: "Autorizado",
     rechazado: "Rechazado",
-    en_proceso: "En proceso",
-    completado: "Completado",
-    cerrado: "Cerrado",
     cancelado: "Cancelado",
+    held: "En espera de verificación",
   };
   return `Tu solicitud *${t.folio}* está en estatus *${labels[t.status] ?? t.status}*.`;
 }
@@ -182,7 +191,7 @@ export async function handleIncomingTicketMessage(
         transport,
         jid,
         conversationId,
-        `No reconocí el folio. Responde con uno de tus folios activos:\n${folioList(active)}`
+        `No reconocí el folio. Estas son las que tienes abiertas:\n${folioList(active)}\nResponde con el folio.`
       );
       return true;
     }
@@ -200,7 +209,7 @@ export async function handleIncomingTicketMessage(
           transport,
           jid,
           conversationId,
-          `¿Sobre cuál solicitud? Responde con el folio:\n${folioList(active)}`
+          `¿Sobre cuál? Estas son las que tienes abiertas:\n${folioList(active)}\nResponde con el folio.`
         );
         return true;
       }
@@ -361,7 +370,7 @@ export async function handleIncomingTicketMessage(
         transport,
         jid,
         conversationId,
-        `¿Sobre cuál solicitud? Responde con el folio:\n${folioList(active)}`
+        `¿Sobre cuál? Estas son las que tienes abiertas:\n${folioList(active)}\nResponde con el folio.`
       );
       return true;
     }
@@ -392,7 +401,7 @@ export async function handleIncomingTicketMessage(
   setWaTicketState(conversationId, "confirm", ref.id);
   const prompt =
     active.length > 1
-      ? `Tienes solicitudes activas:\n${folioList(active)}\n¿Tu mensaje es sobre alguna de ellas? Responde *sí* o *no*.`
+      ? `Tienes estas solicitudes abiertas:\n${folioList(active)}\n¿Tu mensaje es sobre alguna? Responde *sí* o *no*.`
       : `Veo que tienes la solicitud *${ref.folio}* activa. ¿Tu mensaje es sobre ella? Responde *sí* o *no*.`;
   await reply(transport, jid, conversationId, prompt);
   return true;

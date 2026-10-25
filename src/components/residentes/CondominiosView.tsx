@@ -7,13 +7,18 @@ import { CondominioStatsBar } from "./CondominioStats";
 import { TableScrollHint } from "./TableScrollHint";
 import { CondominioDocumentsPanel } from "./CondominioDocumentsPanel";
 import { CondominioServicesPanel } from "./CondominioServicesPanel";
-import { CondominioAccountsPanel } from "./CondominioAccountsPanel";
 
 const TIPOS = ["Vivienda", "Terrenos", "Torres"] as const;
 type Tipo = (typeof TIPOS)[number];
 
 const ESTATUS = ["Activo", "Entregado"] as const;
 type Estatus = (typeof ESTATUS)[number];
+
+interface PortalDevelopment {
+  id: number;
+  name: string;
+  slug: string;
+}
 
 interface Condominio {
   id: number;
@@ -23,13 +28,15 @@ interface Condominio {
   estatus: Estatus;
   documentacion_indexada: boolean;
   tags: boolean;
-  estados_cuenta: boolean;
-  cf_community_id?: string | null;
   created_at: number;
   resident_count?: number;
   document_count?: number;
   schedule_count?: number;
+  development_id?: number | null;
+  development_name?: string | null;
 }
+
+const NEW_DEVELOPMENT = "__new__";
 
 interface FormState {
   name: string;
@@ -38,7 +45,8 @@ interface FormState {
   estatus: Estatus;
   documentacion_indexada: boolean;
   tags: boolean;
-  estados_cuenta: boolean;
+  developmentId: number | "" | typeof NEW_DEVELOPMENT;
+  newDevelopmentName: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -48,13 +56,9 @@ const EMPTY_FORM: FormState = {
   estatus: "Activo",
   documentacion_indexada: false,
   tags: false,
-  estados_cuenta: false,
+  developmentId: "",
+  newDevelopmentName: "",
 };
-
-const FEATURE_CHECKS = [
-  { key: "tags" as const, label: "Tags" },
-  { key: "estados_cuenta" as const, label: "Estados de cuenta" },
-];
 
 const TIPO_COLORS: Record<Tipo, string> = {
   Vivienda: "bg-blue-100 text-blue-700",
@@ -75,6 +79,7 @@ interface ListResult {
   total: number;
   page: number;
   totalPages: number;
+  portalDevelopments?: PortalDevelopment[];
 }
 
 interface Stats {
@@ -99,7 +104,7 @@ export function CondominiosView() {
   const [error, setError] = useState("");
   const [docsCondo, setDocsCondo] = useState<Condominio | null>(null);
   const [servicesCondo, setServicesCondo] = useState<Condominio | null>(null);
-  const [accountsCondo, setAccountsCondo] = useState<Condominio | null>(null);
+  const [portalDevelopments, setPortalDevelopments] = useState<PortalDevelopment[]>([]);
 
   const fetchList = useCallback(async () => {
     if (!hasLoadedList.current) setLoading(true);
@@ -111,7 +116,11 @@ export function CondominiosView() {
       params.set("limit", "50");
       const res = await fetch(`/api/condominios?${params.toString()}`);
       if (res.ok) {
-        setResult(await res.json());
+        const payload = (await res.json()) as ListResult;
+        setResult(payload);
+        if (payload.portalDevelopments) {
+          setPortalDevelopments(payload.portalDevelopments);
+        }
         hasLoadedList.current = true;
       }
     } finally {
@@ -151,7 +160,8 @@ export function CondominiosView() {
       estatus: c.estatus ?? "Activo",
       documentacion_indexada: c.documentacion_indexada,
       tags: c.tags,
-      estados_cuenta: c.estados_cuenta,
+      developmentId: c.development_id ?? "",
+      newDevelopmentName: "",
     });
     setError("");
     setModalOpen(true);
@@ -160,6 +170,10 @@ export function CondominiosView() {
   const handleSave = async () => {
     if (!form.name.trim() || !form.prefijo.trim()) {
       setError("Nombre y prefijo son obligatorios");
+      return;
+    }
+    if (form.developmentId === NEW_DEVELOPMENT && !form.newDevelopmentName.trim()) {
+      setError("Escribe el nombre del desarrollo nuevo");
       return;
     }
     setSaving(true);
@@ -171,7 +185,22 @@ export function CondominiosView() {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          name: form.name,
+          prefijo: form.prefijo,
+          tipo: form.tipo,
+          estatus: form.estatus,
+          documentacion_indexada: form.documentacion_indexada,
+          tags: form.tags,
+          developmentId:
+            form.developmentId === "" || form.developmentId === NEW_DEVELOPMENT
+              ? null
+              : form.developmentId,
+          newDevelopmentName:
+            form.developmentId === NEW_DEVELOPMENT
+              ? form.newDevelopmentName.trim()
+              : undefined,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -282,6 +311,7 @@ export function CondominiosView() {
                     <thead>
                       <tr className="border-b border-violet-100">
                         <th className={`${TH} text-center`}>Nombre</th>
+                        <th className={`${TH} text-center hidden sm:table-cell`}>Desarrollo</th>
                         <th className={`${TH} text-center hidden sm:table-cell`}>Prefijo</th>
                         <th className={`${TH} text-center hidden md:table-cell`}>Residentes</th>
                         <th className={`${TH} text-center`}>Tipo</th>
@@ -303,8 +333,13 @@ export function CondominiosView() {
                             <td className="px-4 py-3">
                               <span className="font-medium text-gray-900">{c.name}</span>
                               <span className="sm:hidden block text-xs text-gray-400 mt-0.5">
-                                Prefijo: {c.prefijo || "—"}
+                                {c.development_name || "Sin desarrollo"} · Prefijo: {c.prefijo || "—"}
                               </span>
+                            </td>
+                            <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">
+                              {c.development_name || (
+                                <span className="text-amber-600">Sin asignar</span>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">
                               {c.prefijo || "—"}
@@ -343,15 +378,9 @@ export function CondominiosView() {
                                     Servicios {c.schedule_count}
                                   </span>
                                 )}
-                                {c.estados_cuenta && (
-                                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-medium text-orange-700">
-                                    Cuenta $
-                                  </span>
-                                )}
                                 {!c.documentacion_indexada &&
                                   !c.tags &&
-                                  (c.schedule_count ?? 0) === 0 &&
-                                  !c.estados_cuenta && (
+                                  (c.schedule_count ?? 0) === 0 && (
                                   <span className="text-xs text-gray-400">—</span>
                                 )}
                               </div>
@@ -364,14 +393,6 @@ export function CondominiosView() {
                                 >
                                   Servicios
                                 </button>
-                                {c.estados_cuenta && (
-                                  <button
-                                    onClick={() => setAccountsCondo(c)}
-                                    className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-50 transition-colors"
-                                  >
-                                    Cobranza
-                                  </button>
-                                )}
                                 <button
                                   onClick={() => setDocsCondo(c)}
                                   className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
@@ -458,7 +479,55 @@ export function CondominiosView() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de desarrollo <span className="text-red-500">*</span>
+                  Desarrollo
+                </label>
+                <select
+                  value={form.developmentId}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((f) => ({
+                      ...f,
+                      developmentId:
+                        value === NEW_DEVELOPMENT
+                          ? NEW_DEVELOPMENT
+                          : value
+                            ? Number(value)
+                            : "",
+                      newDevelopmentName:
+                        value === NEW_DEVELOPMENT ? f.newDevelopmentName : "",
+                    }));
+                  }}
+                  className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-violet-400 focus:outline-none"
+                >
+                  <option value="">Sin asignar (no aparece en el portal)</option>
+                  {portalDevelopments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                  <option value={NEW_DEVELOPMENT}>＋ Agregar nuevo…</option>
+                </select>
+                {form.developmentId === NEW_DEVELOPMENT && (
+                  <input
+                    type="text"
+                    value={form.newDevelopmentName}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, newDevelopmentName: e.target.value }))
+                    }
+                    placeholder="Nombre del desarrollo, ej. Lomas del Sur"
+                    maxLength={80}
+                    className="mt-2 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-violet-400 focus:outline-none"
+                    autoFocus
+                  />
+                )}
+                <p className="mt-1 text-xs text-gray-400">
+                  El condominio solo aparece en el portal si tiene un desarrollo asignado.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={form.tipo}
@@ -492,33 +561,6 @@ export function CondominiosView() {
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div className="rounded-xl border border-violet-100 bg-violet-50/40 p-3 space-y-2.5">
-                <p className="text-xs font-medium text-violet-800">Servicios habilitados</p>
-                <p className="text-xs text-gray-500">
-                  La documentación del bot se gestiona con el botón{" "}
-                  <span className="font-medium text-violet-700">Documentos</span>{" "}
-                  de cada condominio.
-                </p>
-                {FEATURE_CHECKS.map(({ key, label }) => (
-                  <label
-                    key={key}
-                    className="flex items-start gap-2.5 cursor-pointer group"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={form[key]}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, [key]: e.target.checked }))
-                      }
-                      className="mt-0.5 rounded border-violet-300 text-violet-600 focus:ring-violet-500"
-                    />
-                    <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                      {label}
-                    </span>
-                  </label>
-                ))}
               </div>
 
               {error && (
@@ -564,17 +606,6 @@ export function CondominiosView() {
           condominioId={servicesCondo.id}
           condominioName={servicesCondo.name}
           onClose={() => setServicesCondo(null)}
-          onChanged={() => {
-            void fetchList();
-          }}
-        />
-      )}
-
-      {accountsCondo && (
-        <CondominioAccountsPanel
-          condominioId={accountsCondo.id}
-          condominioName={accountsCondo.name}
-          onClose={() => setAccountsCondo(null)}
           onChanged={() => {
             void fetchList();
           }}

@@ -20,7 +20,7 @@ export async function POST(_req: Request, { params }: Ctx) {
   const ticket = getTicketById(ticketId);
   if (!ticket) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-  const result = await generateAuthorizationLetter(ticketId);
+  const result = await generateAuthorizationLetter(ticketId, auth.id);
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 500 });
   }

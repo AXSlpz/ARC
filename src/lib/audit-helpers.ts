@@ -5,6 +5,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "conversation.acknowledge": "Atendió solicitud humana",
   "conversation.dismiss_summary": "Descartó resumen de traspaso",
   "conversation.close_survey": "Cerró conversación y envió encuesta",
+  "conversation.close": "Cerró la conversación",
   "conversation.reopen": "Reabrió conversación cerrada",
   "conversation.tags": "Actualizó etiquetas de conversación",
   "note.create": "Agregó nota interna",
@@ -70,6 +71,7 @@ export function buildAuditSummary(
       return `${label}${contact ? `: ${contact}` : ""}${line ? ` · ${line}` : ""}`;
     case "conversation.dismiss_summary":
     case "conversation.close_survey":
+    case "conversation.close":
     case "conversation.reopen":
       return `${label}${contact ? `: ${contact}` : ""}${line ? ` · ${line}` : ""}`;
     case "conversation.tags":

@@ -21,6 +21,10 @@ import type { WaLineStatus } from "./LineSetupScreen";
 import { PasswordStrengthBar } from "./PasswordStrengthBar";
 import { ResidentesAdminTools } from "./residentes/ResidentesAdminTools";
 import { NotificationControls } from "./NotificationControls";
+import { PortalClaimsAdmin } from "./admin/PortalClaimsAdmin";
+import { PortalCatalogAdmin } from "./admin/PortalCatalogAdmin";
+import { PortalReviewAdmin } from "./admin/PortalReviewAdmin";
+import { AdminModulesPanel } from "./admin/AdminModulesPanel";
 import { formatAllowedLineLabels } from "@/lib/line-display";
 import {
   DEFAULT_INACTIVITY_FAREWELL_MESSAGE,
@@ -178,11 +182,15 @@ type TabId =
   | "audit"
   | "system"
   | "users"
-  | "inactivity";
+  | "modules"
+  | "inactivity"
+  | "portal";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "general", label: "General" },
   { id: "users", label: "Usuarios" },
+  { id: "modules", label: "Módulos" },
+  { id: "portal", label: "Portal ARC" },
   { id: "ai", label: "IA / Menú" },
   { id: "inactivity", label: "Cierre auto." },
   { id: "faq", label: "FAQ" },
@@ -228,6 +236,8 @@ export function AdminPanel({
   const [inactivityFarewellMessage, setInactivityFarewellMessage] = useState(
     DEFAULT_INACTIVITY_FAREWELL_MESSAGE
   );
+  const [inactivityAutoCloseEnabled, setInactivityAutoCloseEnabled] =
+    useState(false);
   const [newHoliday, setNewHoliday] = useState("");
 
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -277,6 +287,7 @@ export function AdminPanel({
         setInactivityFarewellMessage(
           settings.inactivityFarewellMessage ?? DEFAULT_INACTIVITY_FAREWELL_MESSAGE
         );
+        setInactivityAutoCloseEnabled(settings.inactivityAutoCloseEnabled === true);
         setUsers(Array.isArray(usersData) ? usersData : []);
       })
       .catch(() => setError("No se pudo cargar la configuración"))
@@ -345,6 +356,7 @@ export function AdminPanel({
           menuEnabled,
           urgencyKeywords,
           inactivityFarewellMessage,
+          inactivityAutoCloseEnabled,
         }),
       });
 
@@ -534,7 +546,9 @@ export function AdminPanel({
     activeTab !== "faq" &&
     activeTab !== "tags" &&
     activeTab !== "quickreplies" &&
-    activeTab !== "audit";
+    activeTab !== "audit" &&
+    activeTab !== "portal" &&
+    activeTab !== "modules";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white">
@@ -555,10 +569,20 @@ export function AdminPanel({
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b border-gray-100 px-4 sm:px-6 py-2 shrink-0 overflow-x-auto">
-        {TABS.map((tab) => (
+      <div
+        role="tablist"
+        aria-label="Secciones de administración"
+        className="flex flex-wrap gap-2 border-b border-gray-100 px-4 sm:px-6 py-2 shrink-0 overflow-x-auto"
+      >
+        {TABS.filter(
+          (tab) => tab.id !== "modules" || viewerRole === "super_admin"
+        ).map((tab) => (
           <button
             key={tab.id}
+            id={`tab-btn-${tab.id}`}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls={`tabpanel-${tab.id}`}
             onClick={() => setActiveTab(tab.id)}
             className={`rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap ${
               activeTab === tab.id
@@ -571,7 +595,13 @@ export function AdminPanel({
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 lg:px-8 py-5">
+      <div
+        role="tabpanel"
+        id={`tabpanel-${activeTab}`}
+        aria-labelledby={`tab-btn-${activeTab}`}
+        tabIndex={-1}
+        className="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 lg:px-8 py-5"
+      >
         <div className="max-w-5xl mx-auto w-full">
           {loading ? (
             <p className="text-sm text-gray-500">Cargando configuración...</p>
@@ -908,13 +938,43 @@ export function AdminPanel({
 
               {activeTab === "inactivity" && (
                 <div className="space-y-5">
+                  <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        Cierre automático
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {inactivityAutoCloseEnabled
+                          ? `Encendido. A los ${INACTIVITY_TIMEOUT_MINUTES} minutos sin respuesta se cierra la conversación y se envía el mensaje.`
+                          : `Apagado. No se cierra la conversación ni se envía el mensaje a los ${INACTIVITY_TIMEOUT_MINUTES} minutos.`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={inactivityAutoCloseEnabled}
+                      aria-label="Cierre automático"
+                      onClick={() =>
+                        setInactivityAutoCloseEnabled((on) => !on)
+                      }
+                      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                        inactivityAutoCloseEnabled ? "bg-violet-600" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                          inactivityAutoCloseEnabled ? "left-5" : "left-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
                   <p className="text-sm text-gray-500">
-                    Mensaje que recibe el cliente cuando la conversación en modo
-                    IA se cierra automáticamente tras{" "}
+                    El mensaje de abajo se usa solo cuando el cierre está
+                    encendido, tras{" "}
                     <strong>{INACTIVITY_TIMEOUT_MINUTES} minutos</strong>{" "}
-                    esperando su respuesta (pregunta abierta, menú, archivo o
+                    esperando respuesta (pregunta abierta, menú, archivo o
                     confirmación). No se envía tras un acuse o agradecimiento
-                    final del bot.
+                    final del bot. Guarda los cambios para que aplique.
                   </p>
 
                   <div>
@@ -1067,6 +1127,49 @@ export function AdminPanel({
                 </div>
               )}
 
+              {activeTab === "modules" && viewerRole === "super_admin" && (
+                <AdminModulesPanel />
+              )}
+
+              {activeTab === "portal" && (
+                <div className="space-y-6">
+                  {/* ── Bandeja de verificación de cuentas ─────────────── */}
+                  <div className="rounded-lg border border-gray-200 bg-white px-4 py-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                      Verificación de cuentas del portal
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Revisa solicitudes de registro pendientes, aprueba o rechaza el acceso
+                      de propietarios al portal de clientes.
+                    </p>
+                    <PortalClaimsAdmin />
+                  </div>
+
+                  {/* ── Catálogo de desarrollos / viviendas ────────────── */}
+                  <div className="rounded-lg border border-gray-200 bg-white px-4 py-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                      Catálogo de desarrollos y viviendas
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Vincula condominios a desarrollos e importa viviendas en lote
+                      (CSV). Las viviendas importadas aparecen en el formulario de registro.
+                    </p>
+                    <PortalCatalogAdmin />
+                  </div>
+
+                  <div className="rounded-lg border border-gray-200 bg-white px-4 py-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                      Modificaciones y firma del comité
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Activa las solicitudes de cada desarrollo, incluidas las que
+                      no vienen encendidas de origen, y registra quién firma la resolución.
+                    </p>
+                    <PortalReviewAdmin />
+                  </div>
+                </div>
+              )}
+
               {activeTab === "users" && (
                 <div className="space-y-5">
                   <p className="text-sm text-gray-500">
@@ -1080,12 +1183,16 @@ export function AdminPanel({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <input
+                      id="new-user-username"
+                      aria-label="Nombre de usuario"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="Usuario"
                       className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                     />
                     <input
+                      id="new-user-displayname"
+                      aria-label="Nombre visible"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="Nombre visible"
@@ -1093,6 +1200,8 @@ export function AdminPanel({
                     />
                     <div>
                       <input
+                        id="new-user-password"
+                        aria-label="Contraseña (mínimo 8 caracteres)"
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -1102,6 +1211,8 @@ export function AdminPanel({
                       <PasswordStrengthBar password={password} />
                     </div>
                     <select
+                      id="new-user-role"
+                      aria-label="Rol del usuario"
                       value={userRole}
                       onChange={(e) => {
                         const nextRole = e.target.value as UserRole;
@@ -1282,7 +1393,8 @@ export function AdminPanel({
       </div>
 
       <div className="border-t border-gray-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-4 shrink-0 bg-white">
-        <div className="text-sm">
+        {/* role="status" para que lectores de pantalla anuncien cambios de estado */}
+        <div className="text-sm" role="status" aria-live="polite" aria-atomic="true">
           {message && (
             <span className="text-emerald-600">
               {message}

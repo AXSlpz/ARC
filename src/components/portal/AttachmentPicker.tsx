@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef } from "react";
+import { useId, useRef, type ReactNode } from "react";
 import {
   ATTACHMENT_ACCEPT,
   ATTACHMENT_MAX_BYTES,
@@ -18,10 +18,13 @@ export function AttachmentPicker({
   files,
   onChange,
   disabled,
+  beforeHint = null,
 }: {
   files: File[];
   onChange: (files: File[]) => void;
   disabled?: boolean;
+  /** Se pinta entre el selector y el texto de tipos y tamaño. */
+  beforeHint?: ReactNode;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const inputId = useId();
@@ -58,17 +61,26 @@ export function AttachmentPicker({
 
   return (
     <div>
-      <input
-        ref={inputRef}
-        id={inputId}
-        type="file"
-        multiple
-        accept={ATTACHMENT_ACCEPT}
-        disabled={disabled}
-        onChange={(e) => handleSelect(e.target.files)}
-        className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 disabled:opacity-50"
-      />
-      <p className="mt-1 text-xs text-slate-400">
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="file"
+          multiple
+          accept={ATTACHMENT_ACCEPT}
+          disabled={disabled}
+          onChange={(e) => handleSelect(e.target.files)}
+          className="sr-only"
+        />
+        <label
+          htmlFor={inputId}
+          className={`shrink-0 cursor-pointer rounded-lg bg-slate-100 px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 ${disabled ? "pointer-events-none opacity-50" : ""}`}
+        >
+          Anexa Archivo
+        </label>
+        {beforeHint}
+      </div>
+      <p className="mt-2 text-xs text-slate-400">
         {ATTACHMENT_TYPES_LABEL}. Máx. 10 MB por archivo, hasta{" "}
         {ATTACHMENT_MAX_FILES} archivos.
       </p>

@@ -1,13 +1,32 @@
 /** Fetch JSON con manejo consistente de `{ error }`. Lanza Error con mensaje útil. */
 export async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
   const hasBody = init?.body != null;
-  const res = await fetch(input, {
-    ...init,
-    headers: {
-      ...(hasBody ? { "Content-Type": "application/json" } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 8000);
+  if (init?.signal) {
+    if (init.signal.aborted) ac.abort();
+    else init.signal.addEventListener("abort", () => ac.abort(), { once: true });
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(input, {
+      ...init,
+      signal: ac.signal,
+      cache: "no-store",
+      headers: {
+        ...(hasBody ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("El servidor tardó demasiado en responder");
+    }
+    throw new Error("No se pudo conectar con el servidor");
+  } finally {
+    clearTimeout(timer);
+  }
 
   const data = await res.json().catch(() => null);
 
@@ -25,6 +44,8 @@ export async function fetchJson<T>(input: string, init?: RequestInit): Promise<T
 const MXN = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
 
 /** Centavos → texto en MXN (divide entre 100). */

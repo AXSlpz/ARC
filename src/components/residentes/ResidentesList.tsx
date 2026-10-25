@@ -4,11 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { ListPagination } from "./ListPagination";
 import { TableScrollHint } from "./TableScrollHint";
 
-const FMT = new Intl.NumberFormat("es-MX", {
-  style: "currency",
-  currency: "MXN",
-});
-
 interface Residente {
   id: number;
   condominio_name: string;
@@ -17,7 +12,6 @@ interface Residente {
   nombre: string;
   celular: number | null;
   email: string | null;
-  cuota_completa: number | null;
   ocupacion?: "Ocupado" | "Vacante";
   pendiente_asignacion?: number;
   active: number;
@@ -115,7 +109,6 @@ export function ResidentesList({
                 <th className={`${TH} text-left hidden sm:table-cell`}>Condominio</th>
                 <th className={`${TH} text-left`}>Vivienda</th>
                 <th className={`${TH} text-left hidden md:table-cell`}>Celular</th>
-                <th className={`${TH} text-left hidden lg:table-cell`}>Cuota</th>
                 <th className={`${TH} text-left`}>Estado</th>
               </tr>
             </thead>
@@ -157,9 +150,6 @@ export function ResidentesList({
                     </td>
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs hidden md:table-cell">
                       {r.celular ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
-                      {r.cuota_completa != null ? FMT.format(r.cuota_completa) : "—"}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">

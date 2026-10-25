@@ -258,6 +258,14 @@ function migrateColumns(): void {
   if (!hasColumn("tickets", "notification_template_id")) {
     db.exec("ALTER TABLE tickets ADD COLUMN notification_template_id INTEGER");
   }
+
+  // Estatus retirados del panel: En proceso, Completado y Cerrado.
+  db.prepare(
+    "UPDATE tickets SET status = 'en_revision' WHERE status = 'en_proceso'"
+  ).run();
+  db.prepare(
+    "UPDATE tickets SET status = 'cancelado' WHERE status IN ('completado', 'cerrado')"
+  ).run();
 }
 
 /** Datos iniciales: categorías de finanzas y un tipo de ticket de ejemplo. */

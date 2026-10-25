@@ -33,6 +33,8 @@ export interface AdminSettings {
   menuEnabled: boolean;
   urgencyKeywords: string[];
   inactivityFarewellMessage: string;
+  /** Si está apagado, no se cierra la conversación ni se envía el mensaje a los 30 min. */
+  inactivityAutoCloseEnabled: boolean;
 }
 
 export interface SessionUser {
@@ -43,6 +45,8 @@ export interface SessionUser {
   /** null = todas las líneas (admin) */
   allowedLineIds: number[] | null;
   totpEnabled?: boolean;
+  /** Módulos prendidos para este perfil. Si falta, se tratan todos como prendidos. */
+  enabledModules?: string[];
 }
 
 export interface AdminUser {

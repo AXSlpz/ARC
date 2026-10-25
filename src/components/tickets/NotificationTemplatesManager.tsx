@@ -140,13 +140,13 @@ export function NotificationTemplatesManager() {
       {!formOpen && (
         <>
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-900">
+            <h3 className="text-lg font-bold text-violet-900">
               Plantillas de notificación
             </h3>
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm [@media(hover:hover)]:hover:from-violet-700 [@media(hover:hover)]:hover:to-purple-700"
             >
               <svg
                 className="h-4 w-4"
@@ -163,7 +163,7 @@ export function NotificationTemplatesManager() {
           </div>
 
           {loading ? (
-            <p className="text-sm text-slate-500">Cargando plantillas...</p>
+            <p className="text-sm text-gray-500">Cargando plantillas...</p>
           ) : error ? (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
@@ -176,7 +176,7 @@ export function NotificationTemplatesManager() {
               </button>
             </div>
           ) : templates.length === 0 ? (
-            <p className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
+            <p className="rounded-xl border border-violet-100 bg-white px-4 py-8 text-center text-sm text-gray-400">
               No hay plantillas. Crea la primera.
             </p>
           ) : (
@@ -184,11 +184,11 @@ export function NotificationTemplatesManager() {
               {templates.map((template) => (
                 <li
                   key={template.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white px-4 py-3"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-slate-900">
+                      <span className="font-medium text-gray-900">
                         {template.name}
                       </span>
                       {template.active ? (
@@ -196,12 +196,12 @@ export function NotificationTemplatesManager() {
                           activo
                         </span>
                       ) : (
-                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                        <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
                           inactivo
                         </span>
                       )}
                     </div>
-                    <p className="truncate text-sm text-slate-500">
+                    <p className="truncate text-sm text-gray-500">
                       {truncateBody(template.body) || "Sin contenido"}
                     </p>
                   </div>
@@ -209,7 +209,7 @@ export function NotificationTemplatesManager() {
                     <button
                       type="button"
                       onClick={() => openEdit(template)}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-violet-800 [@media(hover:hover)]:hover:bg-violet-50"
                     >
                       Editar
                     </button>
@@ -231,7 +231,7 @@ export function NotificationTemplatesManager() {
       {formOpen && (
         <div className="space-y-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-900">
+            <h3 className="text-lg font-bold text-gray-900">
               {editing
                 ? `Editar: ${editing.name}`
                 : "Nueva plantilla de notificación"}
@@ -239,17 +239,17 @@ export function NotificationTemplatesManager() {
             <button
               type="button"
               onClick={closeForm}
-              className="rounded-lg px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100"
+              className="rounded-lg px-3 py-1.5 text-sm text-gray-500 [@media(hover:hover)]:hover:bg-violet-50"
             >
               Cancelar
             </button>
           </div>
 
-          <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="space-y-4 rounded-xl border border-violet-100 bg-white p-4">
             <div>
               <label
                 htmlFor="template-name"
-                className="mb-1 block text-sm font-medium text-slate-700"
+                className="mb-1 block text-sm font-medium text-gray-700"
               >
                 Nombre
               </label>
@@ -257,14 +257,14 @@ export function NotificationTemplatesManager() {
                 id="template-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-violet-400 focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-violet-400 focus:outline-none"
                 placeholder="Ej. Aviso de mantenimiento"
               />
             </div>
             <div>
               <label
                 htmlFor="template-body"
-                className="mb-1 block text-sm font-medium text-slate-700"
+                className="mb-1 block text-sm font-medium text-gray-700"
               >
                 Cuerpo del mensaje
               </label>
@@ -273,16 +273,16 @@ export function NotificationTemplatesManager() {
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 rows={12}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 focus:border-violet-400 focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm text-gray-900 focus:border-violet-400 focus:outline-none"
                 placeholder="Hola {{nombre}}, te escribimos de {{condominio}} respecto a {{motivo}}…"
               />
             </div>
-            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
                 checked={active}
                 onChange={(e) => setActive(e.target.checked)}
-                className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                className="rounded border-gray-200 text-violet-600 focus:ring-violet-500"
               />
               Activo
             </label>
@@ -307,7 +307,7 @@ export function NotificationTemplatesManager() {
             <button
               type="button"
               onClick={closeForm}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-violet-800 [@media(hover:hover)]:hover:bg-violet-50"
             >
               Cancelar
             </button>

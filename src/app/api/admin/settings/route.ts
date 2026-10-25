@@ -33,6 +33,7 @@ interface SettingsPayload {
   menuEnabled?: boolean;
   urgencyKeywords?: string[];
   inactivityFarewellMessage?: string;
+  inactivityAutoCloseEnabled?: boolean;
 }
 
 export async function PUT(req: NextRequest) {
@@ -89,6 +90,16 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    if (
+      body.inactivityAutoCloseEnabled !== undefined &&
+      typeof body.inactivityAutoCloseEnabled !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "El cierre automático debe estar encendido o apagado" },
+        { status: 400 }
+      );
+    }
+
     if (body.inactivityFarewellMessage !== undefined) {
       const msg = body.inactivityFarewellMessage.trim();
       if (!msg) {
@@ -117,6 +128,7 @@ export async function PUT(req: NextRequest) {
       menuEnabled: body.menuEnabled,
       urgencyKeywords: body.urgencyKeywords,
       inactivityFarewellMessage: body.inactivityFarewellMessage?.trim(),
+      inactivityAutoCloseEnabled: body.inactivityAutoCloseEnabled,
     });
 
     auditSettingsChanges(auth.id, auth.username, before, saved);

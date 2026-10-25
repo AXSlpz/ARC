@@ -57,6 +57,7 @@ interface SettingsRow {
   menu_enabled?: number;
   urgency_keywords?: string;
   inactivity_farewell_message?: string;
+  inactivity_auto_close_enabled?: number;
 }
 
 function parseChatColors(raw: string | undefined): ChatColors {
@@ -115,6 +116,7 @@ function parseSettingsRow(row: SettingsRow): AdminSettings {
     inactivityFarewellMessage:
       row.inactivity_farewell_message?.trim() ||
       DEFAULT_INACTIVITY_FAREWELL_MESSAGE,
+    inactivityAutoCloseEnabled: row.inactivity_auto_close_enabled === 1,
   };
 }
 
@@ -131,7 +133,7 @@ function parseUrgencyKeywords(raw: string | undefined): string[] {
 export function getAdminSettings(): AdminSettings {
   const row = db
     .prepare(
-      "SELECT business_name, logo_filename, timezone, business_hours, holidays, chat_colors, welcome_message, menu_enabled, urgency_keywords, inactivity_farewell_message FROM admin_settings WHERE id = 1"
+      "SELECT business_name, logo_filename, timezone, business_hours, holidays, chat_colors, welcome_message, menu_enabled, urgency_keywords, inactivity_farewell_message, inactivity_auto_close_enabled FROM admin_settings WHERE id = 1"
     )
     .get() as SettingsRow | undefined;
 
@@ -148,6 +150,7 @@ export function getAdminSettings(): AdminSettings {
       menuEnabled: true,
       urgencyKeywords: [],
       inactivityFarewellMessage: DEFAULT_INACTIVITY_FAREWELL_MESSAGE,
+      inactivityAutoCloseEnabled: false,
     };
   }
 
@@ -167,6 +170,7 @@ export function saveAdminSettings(
       | "menuEnabled"
       | "urgencyKeywords"
       | "inactivityFarewellMessage"
+      | "inactivityAutoCloseEnabled"
     >
   >
 ): AdminSettings {
@@ -177,6 +181,7 @@ export function saveAdminSettings(
      SET business_name = ?, timezone = ?, business_hours = ?, holidays = ?,
          chat_colors = ?, welcome_message = ?, menu_enabled = ?,
          urgency_keywords = ?, inactivity_farewell_message = ?,
+         inactivity_auto_close_enabled = ?,
          updated_at = unixepoch()
      WHERE id = 1`
   ).run(
@@ -188,7 +193,8 @@ export function saveAdminSettings(
     update.welcomeMessage ?? current.welcomeMessage,
     (update.menuEnabled ?? current.menuEnabled) ? 1 : 0,
     JSON.stringify(update.urgencyKeywords ?? current.urgencyKeywords),
-    update.inactivityFarewellMessage ?? current.inactivityFarewellMessage
+    update.inactivityFarewellMessage ?? current.inactivityFarewellMessage,
+    (update.inactivityAutoCloseEnabled ?? current.inactivityAutoCloseEnabled) ? 1 : 0
   );
 
   return getAdminSettings();
@@ -471,6 +477,16 @@ export function getTotpSecrets(userId: number): {
   };
 }
 
+export function setAdminOwnPassword(userId: number, password: string): void {
+  if (password.length < 8 || password.length > 128) {
+    throw new Error("La contraseña debe tener entre 8 y 128 caracteres");
+  }
+  const updated = db
+    .prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?")
+    .run(hashPassword(password), userId);
+  if (updated.changes !== 1) throw new Error("Usuario no encontrado");
+}
+
 export function verifyAdminPassword(
   username: string,
   password: string
@@ -571,6 +587,15 @@ export function initAdminSettings(): void {
   if (!columnExists("admin_users", "totp_temp_secret")) {
     db.exec("ALTER TABLE admin_users ADD COLUMN totp_temp_secret TEXT");
   }
+  if (!columnExists("admin_users", "email")) {
+    db.exec("ALTER TABLE admin_users ADD COLUMN email TEXT");
+  }
+  if (!columnExists("admin_users", "job_title")) {
+    db.exec("ALTER TABLE admin_users ADD COLUMN job_title TEXT");
+  }
+  if (!columnExists("admin_users", "signature_filename")) {
+    db.exec("ALTER TABLE admin_users ADD COLUMN signature_filename TEXT");
+  }
 
   ensureSuperAdminExists();
 
@@ -582,6 +607,12 @@ export function initAdminSettings(): void {
 
   if (!columnExists("admin_settings", "inactivity_farewell_message")) {
     db.exec("ALTER TABLE admin_settings ADD COLUMN inactivity_farewell_message TEXT");
+  }
+
+  if (!columnExists("admin_settings", "inactivity_auto_close_enabled")) {
+    db.exec(
+      "ALTER TABLE admin_settings ADD COLUMN inactivity_auto_close_enabled INTEGER NOT NULL DEFAULT 0"
+    );
   }
 
   ensureCaptivePortalLogoSynced();

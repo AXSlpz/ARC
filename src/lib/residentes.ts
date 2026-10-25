@@ -76,7 +76,7 @@ export interface Residente {
   condominio_prefijo: string;
   num_vivienda: number | null;
   num_coto: string | null;
-  /** ID estable de propiedad en ComunidadFeliz (opcional; match perfecto). */
+  /** Columna legado; ya no se usa ni se muestra. */
   cf_property_id: string | null;
   prototipo_id: number | null;
   prototipo_name?: string | null;
@@ -1436,20 +1436,11 @@ const EXPORT_HEADERS = [
   "Prefijo",
   "Num° Vivienda",
   "Num° Coto",
-  "CF Property ID",
   "Prototipo",
   "Nombre",
   "Celular",
   "Email",
-  "Fecha Entrega",
   "m²",
-  "Cuota Int",
-  "Cuota Ext",
-  "Cuota Completa",
-  "Cuota Int (PronPago)",
-  "Cuota Ext (PronPago)",
-  "Cuota Comp (PronPago)",
-  "Servicio Luz",
   "Nombre Cont1",
   "Celular Cont1",
   "Parentesco Cont1",
@@ -1459,20 +1450,9 @@ const EXPORT_HEADERS = [
   "Nombre Cont3",
   "Celular Cont3",
   "Parentesco Cont3",
-  "Mes de Pago",
   "Nombre ExPropietario",
   "Cell ExPropietario",
   "Fecha Entrega 1er",
-  "Estatus TAG 1",
-  "TAG ID 1",
-  "Placa TAG 1",
-  "Modelo TAG 1",
-  "Color TAG 1",
-  "Estatus TAG 2",
-  "TAG ID 2",
-  "Placa TAG 2",
-  "Modelo TAG 2",
-  "Color TAG 2",
 ];
 
 function escapeCsv(val: string | number | null | undefined): string {
@@ -1499,20 +1479,11 @@ export function exportResidentesCsv(filters: ResidenteFilters = {}): string {
         r.condominio_prefijo,
         r.num_vivienda,
         r.num_coto,
-        r.cf_property_id,
         r.prototipo_name,
         r.nombre,
         r.celular,
         r.email,
-        r.fecha_entrega,
         r.metros_cuadrados,
-        r.cuota_int,
-        r.cuota_ext,
-        r.cuota_completa,
-        r.cuota_int_pronpago,
-        r.cuota_ext_pronpago,
-        r.cuota_comp_pronpago,
-        r.servicio_luz,
         r.nombre_contacto1,
         r.celular_contacto1,
         r.parentesco_contacto1,
@@ -1522,20 +1493,9 @@ export function exportResidentesCsv(filters: ResidenteFilters = {}): string {
         r.nombre_contacto3,
         r.celular_contacto3,
         r.parentesco_contacto3,
-        r.mes_pago,
         r.nombre_expropietario,
         r.celular_expropietario,
         r.fecha_entrega_primer,
-        r.tag1_estatus,
-        r.tag1_id,
-        r.tag1_placa,
-        r.tag1_modelo,
-        r.tag1_color,
-        r.tag2_estatus,
-        r.tag2_id,
-        r.tag2_placa,
-        r.tag2_modelo,
-        r.tag2_color,
       ]
         .map(escapeCsv)
         .join(",")

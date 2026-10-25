@@ -1,16 +1,11 @@
 import { getAdminSettings } from "./admin-settings.js";
 
 const EXAMPLE_POOL = [
-  "¿Cuál es el horario de la alberca?",
-  "¿Cómo registro una visita?",
-  "¿Cuándo vence la cuota de mantenimiento?",
-  "¿Qué normas hay sobre mascotas?",
-  "¿Dónde reporto una fuga de agua?",
-  "¿Cuál es el horario del área común?",
-  "¿Cómo solicito un permiso de obra?",
-  "¿Hay estacionamiento para visitas?",
-  "¿Quién contacto para temas de seguridad?",
-  "¿Cuándo son las juntas de condominio?",
+  "¿Qué pide el reglamento de construcción para una barda?",
+  "¿Qué documentos pide ARC para una modificación?",
+  "¿Qué requisitos de obra aplican en mi condominio?",
+  "¿Dónde veo los documentos que cargó ARC?",
+  "¿Qué debo entregar para una solicitud de obra?",
 ];
 
 const DEFAULT_INTROS = [

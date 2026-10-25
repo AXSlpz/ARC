@@ -26,8 +26,6 @@ import {
   ensureBotProcessorRegistered,
 } from "../src/lib/baileys/handler.js";
 import { ensureAllCondominioReglamentosIndexes } from "../src/lib/reglamentos.js";
-import { syncComunidadFelizAccounts } from "../src/lib/comunidad-feliz-accounts.js";
-import { isComunidadFelizConfigured } from "../src/lib/comunidad-feliz-client.js";
 import { getLineProvider, getTransport } from "../src/lib/wa/registry.js";
 import { syncMetaLineFromEnv } from "../src/lib/wa/sync-meta-line.js";
 import {
@@ -36,7 +34,6 @@ import {
 } from "../src/lib/wa/meta-inbound-queue.js";
 
 const DATA_DIR = path.resolve(process.cwd(), "data");
-const CF_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 function restartFlagPath(lineId: number): string {
   return path.join(DATA_DIR, `.restart-${lineId}`);
@@ -59,27 +56,6 @@ if (metaSync.configured) {
 }
 
 await ensureAllCondominioReglamentosIndexes();
-
-async function runComunidadFelizSync(reason: string): Promise<void> {
-  if (!isComunidadFelizConfigured()) return;
-  try {
-    console.log(`[bot] Sync ComunidadFeliz (${reason})...`);
-    const result = await syncComunidadFelizAccounts();
-    for (const s of result.summaries) {
-      console.log(
-        `[bot] CF sync condo=${s.condominioId} matched=${s.matched} unmatched=${s.unmatched} props=${s.properties}` +
-          (s.errors.length ? ` errors=${s.errors.join("; ")}` : "")
-      );
-    }
-  } catch (err) {
-    console.error("[bot] Error sync ComunidadFeliz:", err);
-  }
-}
-
-void runComunidadFelizSync("startup");
-setInterval(() => {
-  void runComunidadFelizSync("interval");
-}, CF_SYNC_INTERVAL_MS);
 
 const lines = listWaLines();
 for (const line of lines) {

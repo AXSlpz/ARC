@@ -1,19 +1,26 @@
 interface WindowEntry {
   count: number;
   windowStart: number;
+  /** Tamaño de ventana en ms para este key. Guardado para que purge lo use. */
+  windowMs: number;
 }
 
 const store = new Map<string, WindowEntry>();
 
-function purge() {
+function purge(): void {
   const now = Date.now();
   for (const [key, entry] of store) {
-    if (now - entry.windowStart > 120_000) store.delete(key);
+    // Purgar solo si la ventana REAL de esta clave ya expiró.
+    // ANTES se usaba un hardcode de 120_000 ms, lo que borraba prematuramente
+    // claves con ventanas largas (p.ej. 15 min) y reseteaba el contador.
+    if (now - entry.windowStart > entry.windowMs) {
+      store.delete(key);
+    }
   }
 }
 
 let purgeCounter = 0;
-function maybeePurge() {
+function maybePurge(): void {
   if (++purgeCounter % 500 === 0) purge();
 }
 
@@ -29,12 +36,12 @@ export function isRateLimited(
   limit: number,
   windowMs: number
 ): boolean {
-  maybeePurge();
+  maybePurge();
   const now = Date.now();
   const entry = store.get(key);
 
   if (!entry || now - entry.windowStart > windowMs) {
-    store.set(key, { count: 1, windowStart: now });
+    store.set(key, { count: 1, windowStart: now, windowMs });
     return false;
   }
 
@@ -52,4 +59,16 @@ export function getClientIp(req: Request): string {
     if (xff) return xff.split(",")[0].trim();
   }
   return "local";
+}
+
+// ── Exports para pruebas unitarias (no usar en producción) ───────────────────
+
+/** Fuerza una purga inmediata. Solo para tests. */
+export function purgeForTest(): void {
+  purge();
+}
+
+/** Inserta una entrada arbitraria al store. Solo para tests. */
+export function setEntryForTest(key: string, entry: WindowEntry): void {
+  store.set(key, entry);
 }

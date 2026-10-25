@@ -9,10 +9,10 @@ import {
   findResidentesByRegisteredPhone,
   getResidente,
 } from "../residentes";
-import { initPhase2Schema } from "./schema";
+import { initPortalSchema } from "./init-portal";
 import type { PortalUser } from "./types";
 
-initPhase2Schema();
+initPortalSchema();
 
 const PORTAL_COOKIE = "arc_portal_session";
 const SESSION_TTL_SEC = 30 * 24 * 60 * 60; // 30 días deslizantes
@@ -305,6 +305,17 @@ export interface UpdateProfileInput {
   name?: string;
   email?: string;
   phone?: string | null;
+  /**
+   * Requerida cuando se cambia el email. Verifica identidad antes de
+   * modificar la dirección de inicio de sesión e invalidar otras sesiones.
+   */
+  currentPassword?: string;
+  /**
+   * ID de la sesión actual. Cuando se cambia el email, todas las sesiones
+   * EXCEPTO esta son invalidadas para forzar re-autenticación en otros
+   * dispositivos. Si es undefined, se invalidan TODAS las sesiones.
+   */
+  currentSessionId?: string;
 }
 
 export type UpdateProfileResult =
@@ -316,42 +327,78 @@ export function updatePortalProfile(
   input: UpdateProfileInput
 ): UpdateProfileResult {
   const current = db
-    .prepare("SELECT id, name, email, phone, active, created_at FROM portal_users WHERE id = ?")
-    .get(userId) as PortalUserRow | undefined;
+    .prepare(
+      "SELECT id, name, email, phone, active, created_at, password_hash FROM portal_users WHERE id = ?"
+    )
+    .get(userId) as (PortalUserRow & { password_hash: string }) | undefined;
   if (!current) return { ok: false, error: "Cuenta no encontrada." };
 
   const name = input.name != null ? input.name.trim() : current.name;
-  const email = input.email != null ? input.email.trim().toLowerCase() : current.email;
+  const newEmail = input.email != null ? input.email.trim().toLowerCase() : current.email;
   const phone =
     input.phone !== undefined ? input.phone?.trim() || null : current.phone;
 
   if (!name || name.length < 2) {
     return { ok: false, error: "Nombre inválido (mínimo 2 caracteres)." };
   }
-  if (!isValidEmail(email)) {
+  if (!isValidEmail(newEmail)) {
     return { ok: false, error: "Correo electrónico inválido." };
+  }
+
+  const emailChanging = newEmail !== current.email;
+
+  // ── Seguridad de cambio de email ─────────────────────────────────────────
+  if (emailChanging) {
+    if (!input.currentPassword) {
+      return {
+        ok: false,
+        error: "Para cambiar el correo debes verificar tu contraseña actual.",
+      };
+    }
+    if (!verifyPassword(input.currentPassword, current.password_hash)) {
+      return {
+        ok: false,
+        error: "La contraseña actual no es correcta. No se realizaron cambios.",
+      };
+    }
   }
 
   const clash = db
     .prepare("SELECT id FROM portal_users WHERE email = ? AND id <> ?")
-    .get(email, userId) as { id: number } | undefined;
+    .get(newEmail, userId) as { id: number } | undefined;
   if (clash) {
     return { ok: false, error: "Ese correo ya está en uso por otra cuenta." };
   }
 
+  // ── Actualizar perfil ──────────────────────────────────────────────────────
   db.prepare(
     "UPDATE portal_users SET name = ?, email = ?, phone = ? WHERE id = ?"
-  ).run(name, email, phone, userId);
+  ).run(name, newEmail, phone, userId);
+
+  // ── Invalidar otras sesiones al cambiar email ─────────────────────────────
+  if (emailChanging) {
+    if (input.currentSessionId) {
+      // Preservar solo la sesión actual
+      db.prepare(
+        "DELETE FROM portal_sessions WHERE user_id = ? AND id != ?"
+      ).run(userId, input.currentSessionId);
+    } else {
+      // Sin sesión conocida: invalidar todas (el usuario deberá hacer login de nuevo)
+      db.prepare("DELETE FROM portal_sessions WHERE user_id = ?").run(userId);
+    }
+  }
 
   // Reintenta enlazar con residente si cambió correo/teléfono y no había enlace.
   try {
-    linkPortalUserToResidente(userId, { email, phone });
+    linkPortalUserToResidente(userId, { email: newEmail, phone });
   } catch {
     /* best-effort */
   }
 
   const row = db
-    .prepare("SELECT id, name, email, phone, active, created_at FROM portal_users WHERE id = ?")
+    .prepare(
+      "SELECT id, name, email, phone, active, created_at FROM portal_users WHERE id = ?"
+    )
     .get(userId) as PortalUserRow;
   return { ok: true, user: mapUser(row) };
 }

@@ -1,6 +1,6 @@
 import { mkdir, writeFile, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import path from "node:path";
 import db from "../db";
 import { initPhase2Schema } from "./schema";
@@ -117,6 +117,8 @@ export interface StoreFileInput {
   originalName: string;
   declaredMime: string;
   bytes: Buffer;
+  /** Categoría del documento para el checklist del admin */
+  attachmentCategory?: string | null;
 }
 
 export type StoreFileResult =
@@ -156,6 +158,34 @@ export async function storeAttachment(
     return { ok: false, error: "El archivo fue rechazado por el antivirus." };
   }
 
+  // Computar SHA-256 para dedup idempotente (retry sin duplicados)
+  const fileSha256 = createHash("sha256").update(input.bytes).digest("hex");
+
+  // Validar categoría si se proporciona
+  const validCategories = ["carta_no_adeudo", "ficha_tecnica", "croquis", "fotos", "otro"];
+  const category =
+    input.attachmentCategory && validCategories.includes(input.attachmentCategory)
+      ? input.attachmentCategory
+      : null;
+
+  // Dedup: si ya existe el mismo archivo (hash + categoría + ticket) → devolver existente
+  if (category && fileSha256) {
+    const existing = db
+      .prepare(
+        `SELECT id FROM ticket_attachments
+         WHERE ticket_id = ? AND attachment_category = ? AND file_sha256 = ?
+         LIMIT 1`
+      )
+      .get(input.ticketId, category, fileSha256) as { id: number } | undefined;
+
+    if (existing) {
+      const existingRow = getAttachmentRow(existing.id);
+      if (existingRow) {
+        return { ok: true, attachment: existingRow };
+      }
+    }
+  }
+
   const dir = path.join(UPLOADS_DIR, String(input.ticketId));
   await mkdir(dir, { recursive: true });
   const storedName = `${randomBytes(16).toString("hex")}.${rule.ext}`;
@@ -165,8 +195,8 @@ export async function storeAttachment(
   const res = db
     .prepare(
       `INSERT INTO ticket_attachments
-         (ticket_id, comment_id, uploader_type, original_name, stored_path, mime, size_bytes, scanned)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+         (ticket_id, comment_id, uploader_type, original_name, stored_path, mime, size_bytes, scanned, attachment_category, file_sha256)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       input.ticketId,
@@ -176,7 +206,9 @@ export async function storeAttachment(
       storedPath,
       rule.mimes[0] ?? "application/octet-stream",
       size,
-      scanned
+      scanned,
+      category,
+      fileSha256
     );
 
   const row = getAttachmentRow(Number(res.lastInsertRowid));
@@ -196,6 +228,7 @@ interface AttachmentRow {
   mime: string;
   size_bytes: number;
   scanned: string;
+  attachment_category: string | null;
   created_at: number;
 }
 
@@ -209,8 +242,22 @@ function mapAttachment(row: AttachmentRow): TicketAttachment {
     mime: row.mime,
     sizeBytes: row.size_bytes,
     scanned: row.scanned,
+    attachmentCategory: row.attachment_category ?? null,
     createdAt: row.created_at,
   };
+}
+
+/** Lista adjuntos filtrados por categoría. */
+export function listAttachmentsByCategory(
+  ticketId: number,
+  category: string
+): TicketAttachment[] {
+  const rows = db
+    .prepare(
+      "SELECT * FROM ticket_attachments WHERE ticket_id = ? AND attachment_category = ? ORDER BY created_at, id"
+    )
+    .all(ticketId, category) as AttachmentRow[];
+  return rows.map(mapAttachment);
 }
 
 function getAttachmentRow(id: number): TicketAttachment | null {

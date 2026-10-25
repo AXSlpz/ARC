@@ -294,7 +294,7 @@ export function getHandoffOutOfHoursMessage(settings?: AdminSettings): string {
 
 Su solicitud quedó registrada en lista de espera y será atendida con prioridad al iniciar el siguiente horario laboral.
 
-Mientras tanto, con gusto puedo ayudarle con otras preguntas sobre el condominio: reglamentos, políticas, avisos y más.`;
+Mientras tanto, puedo ayudarle con ARC, el reglamento de construcción y los documentos cargados de su condominio.`;
 }
 
 export function isWithinBusinessHours(

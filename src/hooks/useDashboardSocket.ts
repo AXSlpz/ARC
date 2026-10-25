@@ -1,27 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-
-function getWsBaseUrl(): string {
-  if (typeof window === "undefined") return "";
-
-  const proto = window.location.protocol === "https:" ? "wss" : "ws";
-  const hostname = window.location.hostname;
-  const port = window.location.port;
-
-  const sameOriginWs = process.env.NEXT_PUBLIC_WS_SAME_ORIGIN === "true";
-  if (sameOriginWs) {
-    return `${proto}://${window.location.host}/ws`;
-  }
-
-  // Sin proxy nginx: el WS corre en puerto dedicado (p. ej. acceso LAN :3000 → WS :3001)
-  if (!port || port === "3000") {
-    const wsPort = process.env.NEXT_PUBLIC_WS_PORT || "3001";
-    return `${proto}://${hostname}:${wsPort}/ws`;
-  }
-
-  return `${proto}://${window.location.host}/ws`;
-}
+import { getWsBaseUrl } from "@/lib/ws-client-url";
 
 async function fetchTicket(): Promise<string | null> {
   try {

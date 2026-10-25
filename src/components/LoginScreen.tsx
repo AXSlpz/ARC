@@ -207,6 +207,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         return;
       }
 
+      if (data.user && !data.requiresTotp && !data.requiresTotpSetup) {
+        onLogin(data.user);
+        return;
+      }
+
       if (data.requiresTotpSetup) {
         await startSetup();
         return;

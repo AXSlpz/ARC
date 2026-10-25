@@ -3,10 +3,6 @@ import {
   normalizeSpanishText,
   normalizeEmailText,
 } from "./text-normalize";
-import {
-  TAG_VEHICULAR_ESTATUS,
-  VEHICULO_COLORES,
-} from "./vehiculo-tags";
 
 export const LoginSchema = z.object({
   username: z.string().min(1).max(64).trim(),
@@ -116,45 +112,15 @@ const optionalDate = z
   .nullable()
   .optional();
 
-const MESES_VALIDOS = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-] as const;
-
 export const ResidenteSchema = z.object({
   condominio_id: z.number().int().positive("Selecciona un condominio"),
   num_vivienda: optionalInt,
   num_coto: optionalString,
-  cf_property_id: z.preprocess(
-    (val) => {
-      if (val == null || val === "") return null;
-      if (typeof val === "number" && Number.isFinite(val)) return String(Math.trunc(val));
-      if (typeof val === "string") {
-        const t = val.trim();
-        return t || null;
-      }
-      return val;
-    },
-    z
-      .string()
-      .regex(/^\d+$/, "CF Property ID debe ser numérico")
-      .max(32)
-      .nullable()
-      .optional()
-  ),
   prototipo_id: optionalInt,
   nombre: requiredSpanishName,
   celular: optionalInt,
   email: optionalEmail,
-  fecha_entrega: optionalDate,
   metros_cuadrados: optionalNumber,
-  cuota_int: optionalNumber,
-  cuota_ext: optionalNumber,
-  cuota_completa: optionalNumber,
-  cuota_int_pronpago: optionalNumber,
-  cuota_ext_pronpago: optionalNumber,
-  cuota_comp_pronpago: optionalNumber,
-  servicio_luz: optionalNumber,
   nombre_contacto1: optionalString,
   celular_contacto1: optionalInt,
   parentesco_contacto1: optionalString,
@@ -164,59 +130,9 @@ export const ResidenteSchema = z.object({
   nombre_contacto3: optionalString,
   celular_contacto3: optionalInt,
   parentesco_contacto3: optionalString,
-  mes_pago: z.preprocess(
-    (val) => {
-      if (val == null || val === "") return val === "" ? "" : null;
-      if (typeof val === "string") return normalizeSpanishText(val);
-      return val;
-    },
-    z.union([z.enum(MESES_VALIDOS), z.literal(""), z.null()]).optional()
-  ),
   nombre_expropietario: optionalString,
   celular_expropietario: optionalInt,
   fecha_entrega_primer: optionalDate,
-  tag1_estatus: z
-    .union([z.enum(TAG_VEHICULAR_ESTATUS), z.literal(""), z.null()])
-    .optional()
-    .transform((v) => (v === "" || v == null ? null : v)),
-  tag1_id: optionalInt,
-  tag1_placa: z.preprocess(
-    (val) => {
-      if (val == null || val === "") return null;
-      if (typeof val === "string") {
-        const t = val.trim().toUpperCase();
-        return t || null;
-      }
-      return val;
-    },
-    z.string().max(30).nullable().optional()
-  ),
-  tag1_modelo: optionalString,
-  tag1_color: z
-    .union([z.enum(VEHICULO_COLORES), z.literal(""), z.null()])
-    .optional()
-    .transform((v) => (v === "" || v == null ? null : v)),
-  tag2_estatus: z
-    .union([z.enum(TAG_VEHICULAR_ESTATUS), z.literal(""), z.null()])
-    .optional()
-    .transform((v) => (v === "" || v == null ? null : v)),
-  tag2_id: optionalInt,
-  tag2_placa: z.preprocess(
-    (val) => {
-      if (val == null || val === "") return null;
-      if (typeof val === "string") {
-        const t = val.trim().toUpperCase();
-        return t || null;
-      }
-      return val;
-    },
-    z.string().max(30).nullable().optional()
-  ),
-  tag2_modelo: optionalString,
-  tag2_color: z
-    .union([z.enum(VEHICULO_COLORES), z.literal(""), z.null()])
-    .optional()
-    .transform((v) => (v === "" || v == null ? null : v)),
 });
 
 export const ResidenteUpdateSchema = ResidenteSchema.partial();
@@ -236,6 +152,16 @@ export const PrototipoUpdateSchema = PrototipoSchema.partial().refine(
   { message: "Envía name y/o active" }
 );
 
+const developmentIdField = z
+  .union([z.coerce.number().int().positive(), z.null()])
+  .optional();
+
+const newDevelopmentNameField = z
+  .string()
+  .max(80, "El desarrollo no puede exceder 80 caracteres")
+  .trim()
+  .optional();
+
 export const CondominioSchema = z.object({
   name: requiredSpanishName,
   prefijo: z.string().min(1, "El prefijo es obligatorio").max(50).trim(),
@@ -243,14 +169,8 @@ export const CondominioSchema = z.object({
   estatus: z.enum(["Activo", "Entregado"]).default("Activo"),
   documentacion_indexada: z.boolean().optional().default(false),
   tags: z.boolean().optional().default(false),
-  estados_cuenta: z.boolean().optional().default(false),
-  cf_community_id: z
-    .string()
-    .trim()
-    .max(64)
-    .nullable()
-    .optional()
-    .transform((v) => (v === "" || v == null ? null : v)),
+  developmentId: developmentIdField,
+  newDevelopmentName: newDevelopmentNameField,
 });
 
 export const CondominioUpdateSchema = z
@@ -261,14 +181,8 @@ export const CondominioUpdateSchema = z
     estatus: z.enum(["Activo", "Entregado"]).optional(),
     documentacion_indexada: z.boolean().optional(),
     tags: z.boolean().optional(),
-    estados_cuenta: z.boolean().optional(),
-    cf_community_id: z
-      .string()
-      .trim()
-      .max(64)
-      .nullable()
-      .optional()
-      .transform((v) => (v === "" || v == null ? null : v)),
+    developmentId: developmentIdField,
+    newDevelopmentName: newDevelopmentNameField,
   })
   .refine(
     (data) =>
@@ -278,19 +192,10 @@ export const CondominioUpdateSchema = z
       data.estatus !== undefined ||
       data.documentacion_indexada !== undefined ||
       data.tags !== undefined ||
-      data.estados_cuenta !== undefined ||
-      data.cf_community_id !== undefined,
+      data.developmentId !== undefined ||
+      data.newDevelopmentName !== undefined,
     { message: "Debe enviar al menos un campo para actualizar" }
   );
-
-export const ComunidadFelizCondoSchema = z.object({
-  cf_community_id: z
-    .string()
-    .trim()
-    .max(64)
-    .nullable()
-    .transform((v) => (v === "" || v == null ? null : v)),
-});
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;

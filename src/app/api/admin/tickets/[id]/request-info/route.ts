@@ -11,6 +11,7 @@ import { sendWhatsApp } from "@/lib/notify/whatsapp";
 import { sendEmail } from "@/lib/notify/email";
 import { broadcastTicketEvent } from "@/lib/ws-notify";
 import db from "@/lib/db";
+import { pauseSla } from "@/lib/portal/sla";
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -87,9 +88,12 @@ export async function POST(req: Request, { params }: Ctx) {
   }
 
   const updated = setTicketAwaiting(ticketId, kind, note || null);
-
   const message = guidedMessage(ticket.folio, kind, note);
   const authorName = auth.displayName || auth.username;
+  pauseSla(ticketId, {
+    reason: "En espera de respuesta del cliente",
+    createdBy: authorName,
+  });
   const commentBody = note
     ? `Pedimos al cliente ${kindLabel(kind)}:\n${note}`
     : `Pedimos al cliente ${kindLabel(kind)}.`;

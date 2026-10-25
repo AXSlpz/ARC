@@ -1,5 +1,6 @@
 import { broadcastDashboard } from "./ws-notify";
 import db from "./db-connection";
+import { initCrmSchema } from "./crm/schema";
 import { findResidenteByCelular, getResidente } from "./residentes";
 import {
   findSiblingProperties,
@@ -926,5 +927,6 @@ function migrateConversationsForMultiLine(): void {
 }
 
 migrateMultiLineSchema();
+initCrmSchema();
 
 export default db;

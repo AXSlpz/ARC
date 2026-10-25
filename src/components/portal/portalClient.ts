@@ -9,19 +9,42 @@ export async function fetchJson<T>(
   url: string,
   init?: RequestInit,
 ): Promise<T> {
+  const timeoutMs = 8000;
+  const ac = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ac.abort();
+  }, timeoutMs);
+  if (init?.signal) {
+    if (init.signal.aborted) ac.abort();
+    else init.signal.addEventListener("abort", () => ac.abort(), { once: true });
+  }
+
   let res: Response;
   try {
     res = await fetch(url, {
       credentials: "same-origin",
       cache: "no-store",
       ...init,
+      signal: ac.signal,
       headers: {
         ...(init?.body ? { "Content-Type": "application/json" } : {}),
         ...(init?.headers ?? {}),
       },
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      if (timedOut) {
+        throw new Error("El servidor tardó demasiado en responder");
+      }
+      const aborted = new Error("Aborted");
+      aborted.name = "AbortError";
+      throw aborted;
+    }
     throw new Error("No se pudo conectar con el servidor");
+  } finally {
+    clearTimeout(timer);
   }
 
   const data = (await res.json().catch(() => null)) as
@@ -44,10 +67,8 @@ export const STATUS_BADGE_CLASSES: Record<TicketStatus, string> = {
   en_revision: "bg-amber-100 text-amber-800 border-amber-200",
   autorizado: "bg-emerald-100 text-emerald-800 border-emerald-200",
   rechazado: "bg-rose-100 text-rose-800 border-rose-200",
-  en_proceso: "bg-blue-100 text-blue-800 border-blue-200",
-  completado: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  cerrado: "bg-slate-100 text-slate-600 border-slate-200",
   cancelado: "bg-rose-100 text-rose-700 border-rose-200",
+  held: "bg-violet-100 text-violet-700 border-violet-200",
 };
 
 export function statusLabel(status: TicketStatus): string {

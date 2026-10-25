@@ -237,10 +237,10 @@ export function TicketTypesManager() {
       {!formOpen && (
         <>
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-900">Tipos de ticket</h3>
+            <h3 className="text-lg font-bold text-violet-900">Tipo de Solicitud</h3>
             <button
               onClick={openCreate}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm [@media(hover:hover)]:hover:from-violet-700 [@media(hover:hover)]:hover:to-purple-700"
             >
               <svg
                 className="h-4 w-4"
@@ -256,7 +256,7 @@ export function TicketTypesManager() {
           </div>
 
           {loading ? (
-            <p className="text-sm text-slate-500">Cargando tipos...</p>
+            <p className="text-sm text-gray-500">Cargando tipos...</p>
           ) : error ? (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
@@ -268,28 +268,28 @@ export function TicketTypesManager() {
               </button>
             </div>
           ) : types.length === 0 ? (
-            <p className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
-              No hay tipos de ticket. Crea el primero.
+            <p className="rounded-xl border border-violet-100 bg-white px-4 py-8 text-center text-sm text-gray-400">
+              No hay tipos de solicitud. Crea el primero.
             </p>
           ) : (
             <ul className="space-y-2">
               {types.map((type) => (
                 <li
                   key={type.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white px-4 py-3"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-slate-900">
+                      <span className="font-medium text-gray-900">
                         {type.name}
                       </span>
                       {!type.active && (
-                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                        <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
                           inactivo
                         </span>
                       )}
                     </div>
-                    <p className="truncate text-sm text-slate-500">
+                    <p className="truncate text-sm text-gray-500">
                       {type.description ?? "Sin descripción"} ·{" "}
                       {type.fields?.length ?? 0} campos
                     </p>
@@ -297,7 +297,7 @@ export function TicketTypesManager() {
                   <div className="flex shrink-0 gap-2">
                     <button
                       onClick={() => openEdit(type)}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-violet-800 [@media(hover:hover)]:hover:bg-violet-50"
                     >
                       Editar
                     </button>
@@ -318,67 +318,67 @@ export function TicketTypesManager() {
       {formOpen && (
         <div className="space-y-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-900">
-              {editing ? `Editar: ${editing.name}` : "Nuevo tipo de ticket"}
+            <h3 className="text-lg font-bold text-gray-900">
+              {editing ? `Editar: ${editing.name}` : "Nuevo tipo de solicitud"}
             </h3>
             <button
               onClick={closeForm}
-              className="rounded-lg px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100"
+              className="rounded-lg px-3 py-1.5 text-sm text-gray-500 [@media(hover:hover)]:hover:bg-violet-50"
             >
               Cancelar
             </button>
           </div>
 
-          <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="space-y-4 rounded-xl border border-violet-100 bg-white p-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Nombre
               </label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
                 placeholder="Ej. Carta de no adeudo"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Descripción
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
               />
             </div>
-            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
                 checked={active}
                 onChange={(e) => setActive(e.target.checked)}
-                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                className="rounded border-gray-200 text-emerald-600 focus:ring-emerald-500"
               />
               Activo
             </label>
           </div>
 
           {/* Constructor de campos */}
-          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="space-y-3 rounded-xl border border-violet-100 bg-white p-4">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-slate-800">
+              <h4 className="text-sm font-semibold text-violet-800">
                 Campos del formulario
               </h4>
               <button
                 onClick={() => setFields((prev) => [...prev, emptyField()])}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-violet-800 [@media(hover:hover)]:hover:bg-violet-50"
               >
                 + Agregar campo
               </button>
             </div>
 
             {fields.length === 0 ? (
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-gray-400">
                 Sin campos. Agrega los datos que el cliente debe capturar.
               </p>
             ) : (
@@ -386,14 +386,14 @@ export function TicketTypesManager() {
                 {fields.map((field, index) => (
                   <li
                     key={field.uid}
-                    className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                    className="rounded-lg border border-violet-100 bg-violet-50/40 p-3"
                   >
                     <div className="flex items-start gap-2">
                       <div className="flex flex-col gap-1 pt-1">
                         <button
                           onClick={() => moveField(index, -1)}
                           disabled={index === 0}
-                          className="rounded border border-slate-300 bg-white px-1.5 text-xs text-slate-600 disabled:opacity-30"
+                          className="rounded border border-gray-200 bg-white px-1.5 text-xs text-violet-700 disabled:opacity-30"
                           aria-label="Subir"
                         >
                           ↑
@@ -401,7 +401,7 @@ export function TicketTypesManager() {
                         <button
                           onClick={() => moveField(index, 1)}
                           disabled={index === fields.length - 1}
-                          className="rounded border border-slate-300 bg-white px-1.5 text-xs text-slate-600 disabled:opacity-30"
+                          className="rounded border border-gray-200 bg-white px-1.5 text-xs text-violet-700 disabled:opacity-30"
                           aria-label="Bajar"
                         >
                           ↓
@@ -410,7 +410,7 @@ export function TicketTypesManager() {
 
                       <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500">
+                          <label className="mb-1 block text-xs font-medium text-gray-500">
                             Etiqueta
                           </label>
                           <input
@@ -418,12 +418,12 @@ export function TicketTypesManager() {
                             onChange={(e) =>
                               updateField(field.uid, { label: e.target.value })
                             }
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
                             placeholder="Ej. Número de vivienda"
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500">
+                          <label className="mb-1 block text-xs font-medium text-gray-500">
                             Tipo de campo
                           </label>
                           <select
@@ -433,7 +433,7 @@ export function TicketTypesManager() {
                                 fieldType: e.target.value as FieldType,
                               })
                             }
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
                           >
                             {FIELD_TYPES.map((ft) => (
                               <option key={ft} value={ft}>
@@ -443,7 +443,7 @@ export function TicketTypesManager() {
                           </select>
                         </div>
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500">
+                          <label className="mb-1 block text-xs font-medium text-gray-500">
                             Clave (opcional)
                           </label>
                           <input
@@ -453,12 +453,12 @@ export function TicketTypesManager() {
                                 fieldKey: e.target.value,
                               })
                             }
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-mono text-slate-900"
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-mono text-gray-900"
                             placeholder={slugify(field.label) || "auto"}
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500">
+                          <label className="mb-1 block text-xs font-medium text-gray-500">
                             Placeholder (opcional)
                           </label>
                           <input
@@ -468,13 +468,13 @@ export function TicketTypesManager() {
                                 placeholder: e.target.value,
                               })
                             }
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
                           />
                         </div>
 
                         {field.fieldType === "select" && (
                           <div className="sm:col-span-2">
-                            <label className="mb-1 block text-xs font-medium text-slate-500">
+                            <label className="mb-1 block text-xs font-medium text-gray-500">
                               Opciones de la lista
                             </label>
                             <div className="space-y-2">
@@ -490,7 +490,7 @@ export function TicketTypesManager() {
                                       options[optIndex] = e.target.value;
                                       updateField(field.uid, { options });
                                     }}
-                                    className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                                    className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
                                     placeholder={`Opción ${optIndex + 1}`}
                                   />
                                   <button
@@ -513,7 +513,7 @@ export function TicketTypesManager() {
                                     options: [...field.options, ""],
                                   })
                                 }
-                                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-white"
+                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-white"
                               >
                                 + Agregar opción
                               </button>
@@ -522,7 +522,7 @@ export function TicketTypesManager() {
                         )}
 
                         <div className="flex items-center justify-between sm:col-span-2">
-                          <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
                             <input
                               type="checkbox"
                               checked={field.required}
@@ -531,7 +531,7 @@ export function TicketTypesManager() {
                                   required: e.target.checked,
                                 })
                               }
-                              className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                              className="rounded border-gray-200 text-emerald-600 focus:ring-emerald-500"
                             />
                             Requerido
                           </label>
@@ -551,26 +551,26 @@ export function TicketTypesManager() {
           </div>
 
           {/* Plantilla de carta */}
-          <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
-            <label className="block text-sm font-semibold text-slate-800">
+          <div className="space-y-2 rounded-xl border border-violet-100 bg-white p-4">
+            <label className="block text-sm font-semibold text-violet-800">
               Plantilla de la carta (HTML)
             </label>
             <textarea
               value={letterTemplate}
               onChange={(e) => setLetterTemplate(e.target.value)}
               rows={10}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm text-gray-900"
               placeholder="<h1>Carta {{folio}}</h1><p>Estimado(a) {{cliente_nombre}}...</p>"
             />
-            <div className="rounded-lg bg-slate-50 px-3 py-2">
-              <p className="text-xs font-medium text-slate-600">
+            <div className="rounded-lg bg-violet-50/40 px-3 py-2">
+              <p className="text-xs font-medium text-violet-700">
                 Placeholders disponibles:
               </p>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {availablePlaceholders.map((ph) => (
                   <code
                     key={ph}
-                    className="rounded bg-slate-200 px-1.5 py-0.5 text-[11px] text-slate-700"
+                    className="rounded bg-violet-100 px-1.5 py-0.5 text-[11px] text-gray-700"
                   >
                     {ph}
                   </code>
@@ -582,7 +582,7 @@ export function TicketTypesManager() {
           <div className="flex justify-end gap-2">
             <button
               onClick={closeForm}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-violet-800 [@media(hover:hover)]:hover:bg-violet-50"
             >
               Cancelar
             </button>

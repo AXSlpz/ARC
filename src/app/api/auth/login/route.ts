@@ -3,10 +3,12 @@ import {
   assertSameOrigin,
   clearLoginAttempts,
   createPendingAuth,
+  createSession,
   getUserByCredentials,
   isLoginRateLimited,
   recordFailedLogin,
   setPendingCookie,
+  setSessionCookie,
 } from "@/lib/auth";
 import { LoginSchema, parseBody } from "@/lib/validation";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
@@ -61,11 +63,25 @@ export async function POST(req: NextRequest) {
 
     clearLoginAttempts(username);
 
-    const kind = user.totpEnabled ? "totp_verify" : "totp_setup";
-    const pendingId = createPendingAuth(user.id, kind);
+    if (!user.totpEnabled) {
+      const sessionId = createSession(user.id);
+      const response = NextResponse.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          role: user.role,
+          allowedLineIds: user.allowedLineIds,
+          totpEnabled: false,
+        },
+      });
+      setSessionCookie(response, sessionId);
+      return response;
+    }
+
+    const pendingId = createPendingAuth(user.id, "totp_verify");
     const response = NextResponse.json({
-      requiresTotp: user.totpEnabled,
-      requiresTotpSetup: !user.totpEnabled,
+      requiresTotp: true,
       user: {
         id: user.id,
         username: user.username,

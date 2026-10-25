@@ -1,6 +1,6 @@
 import { unlink } from "node:fs/promises";
 import db from "../db";
-import { initPhase2Schema } from "./schema";
+import { initPortalSchema } from "./init-portal";
 import { listAttachments } from "./attachments";
 import { getTicketType } from "./ticket-types";
 import {
@@ -9,6 +9,7 @@ import {
   TICKET_STATUSES,
 } from "./types";
 import type {
+  ResolutionDecision,
   Ticket,
   TicketAwaitingKind,
   TicketComment,
@@ -17,8 +18,9 @@ import type {
   TicketStatusHistory,
   TicketValue,
 } from "./types";
+import { RESOLUTION_DECISIONS } from "./types";
 
-initPhase2Schema();
+initPortalSchema();
 
 interface TicketRow {
   id: number;
@@ -37,6 +39,18 @@ interface TicketRow {
   client_name?: string;
   client_email?: string;
   client_phone?: string | null;
+  request_kind?: string | null;
+  modification_catalog_id?: number | null;
+  property_claim_id?: number | null;
+  sla_status?: string | null;
+  sla_target_at?: number | null;
+  resolution_decision?: string | null;
+  resolution_note?: string | null;
+  resolution_hash?: string | null;
+  claim_development_id?: number | null;
+  property_identifier?: string | null;
+  development_name?: string | null;
+  modification_name?: string | null;
 }
 
 function mapTicket(row: TicketRow): Ticket {
@@ -63,15 +77,38 @@ function mapTicket(row: TicketRow): Ticket {
     notificationTemplateId: row.notification_template_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    requestKind: row.request_kind ?? null,
+    modificationCatalogId: row.modification_catalog_id ?? null,
+    modificationName: row.modification_name ?? null,
+    propertyClaimId: row.property_claim_id ?? null,
+    developmentId: row.claim_development_id ?? null,
+    developmentName: row.development_name ?? null,
+    propertyIdentifier: row.property_identifier ?? null,
+    slaStatus: row.sla_status ?? null,
+    slaTargetAt: row.sla_target_at ?? null,
+    resolutionDecision: (RESOLUTION_DECISIONS as string[]).includes(
+      row.resolution_decision ?? ""
+    )
+      ? (row.resolution_decision as ResolutionDecision)
+      : null,
+    resolutionNote: row.resolution_note ?? null,
+    resolutionHash: row.resolution_hash ?? null,
   };
 }
 
 const BASE_SELECT = `
   SELECT t.*, tt.name AS ticket_type_name,
-         u.name AS client_name, u.email AS client_email, u.phone AS client_phone
+         u.name AS client_name, u.email AS client_email, u.phone AS client_phone,
+         pc.development_id AS claim_development_id,
+         pc.property_identifier AS property_identifier,
+         d.name AS development_name,
+         mc.name AS modification_name
   FROM tickets t
   JOIN ticket_types tt ON tt.id = t.ticket_type_id
   JOIN portal_users u ON u.id = t.portal_user_id
+  LEFT JOIN property_claims pc ON pc.id = t.property_claim_id
+  LEFT JOIN developments d ON d.id = pc.development_id
+  LEFT JOIN modification_catalog mc ON mc.id = t.modification_catalog_id
 `;
 
 function generateFolio(id: number): string {
@@ -108,12 +145,28 @@ export function createTicket(input: CreateTicketInput): CreateTicketResult {
     }
   }
 
+  // Si el usuario tiene un claim pending/conflict, el ticket va a 'held'
+  // hasta que el admin apruebe la cuenta. Consulta directa a la DB para
+  // evitar dependencia circular con registration-admin.ts.
+  const hasPendingClaim = db
+    .prepare(
+      `SELECT 1 FROM property_claims
+       WHERE portal_user_id = ? AND status IN ('pending','conflict')
+       LIMIT 1`
+    )
+    .get(input.portalUserId) as { 1: number } | undefined;
+
+  const initialStatus = hasPendingClaim ? "held" : "nuevo";
+  const historyNote = hasPendingClaim
+    ? "Solicitud creada — retenida hasta verificación de cuenta"
+    : "Solicitud creada";
+
   const tx = db.transaction(() => {
     const res = db
       .prepare(
-        "INSERT INTO tickets (folio, ticket_type_id, portal_user_id, status) VALUES ('', ?, ?, 'nuevo')"
+        "INSERT INTO tickets (folio, ticket_type_id, portal_user_id, status) VALUES ('', ?, ?, ?)"
       )
-      .run(input.ticketTypeId, input.portalUserId);
+      .run(input.ticketTypeId, input.portalUserId, initialStatus);
     const ticketId = Number(res.lastInsertRowid);
     db.prepare("UPDATE tickets SET folio = ? WHERE id = ?").run(
       generateFolio(ticketId),
@@ -134,8 +187,10 @@ export function createTicket(input: CreateTicketInput): CreateTicketResult {
     }
 
     db.prepare(
-      "INSERT INTO ticket_status_history (ticket_id, from_status, to_status, changed_by, note) VALUES (?, NULL, 'nuevo', 'cliente', 'Solicitud creada')"
-    ).run(ticketId);
+      `INSERT INTO ticket_status_history
+         (ticket_id, from_status, to_status, changed_by, note)
+       VALUES (?, NULL, ?, 'cliente', ?)`
+    ).run(ticketId, initialStatus, historyNote);
 
     return ticketId;
   });
@@ -162,6 +217,12 @@ export interface AdminTicketFilters {
   search?: string;
   /** true = solo archivados (eliminados); false/undefined = solo activos. */
   archived?: boolean;
+  developmentId?: number;
+  /** Número de vivienda tal como lo escribió el cliente (parte final del identificador). */
+  numVivienda?: string;
+  modificationCatalogId?: number;
+  /** Solo tickets con SLA activo ya vencido. */
+  overdue?: boolean;
 }
 
 export function listTicketsAdmin(filters: AdminTicketFilters = {}): Ticket[] {
@@ -181,6 +242,25 @@ export function listTicketsAdmin(filters: AdminTicketFilters = {}): Ticket[] {
     clauses.push("(t.folio LIKE ? OR u.name LIKE ? OR u.email LIKE ?)");
     const like = `%${filters.search}%`;
     params.push(like, like, like);
+  }
+  if (filters.developmentId) {
+    clauses.push("pc.development_id = ?");
+    params.push(filters.developmentId);
+  }
+  if (filters.numVivienda) {
+    clauses.push(
+      "substr(pc.property_identifier, instr(pc.property_identifier, ':') + 1) = ?"
+    );
+    params.push(filters.numVivienda);
+  }
+  if (filters.modificationCatalogId) {
+    clauses.push("t.modification_catalog_id = ?");
+    params.push(filters.modificationCatalogId);
+  }
+  if (filters.overdue) {
+    clauses.push(
+      "t.sla_status = 'active' AND t.sla_target_at IS NOT NULL AND t.sla_target_at < unixepoch()"
+    );
   }
   const where = `WHERE ${clauses.join(" AND ")}`;
   const orderCol = filters.archived ? "t.deleted_at" : "t.created_at";

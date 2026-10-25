@@ -1,8 +1,15 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
+import { loadLetterSigner, type LetterSigner } from "../admin-profile";
+import db from "../db";
 import { addDocument, getTicketById } from "./tickets";
 import { getTicketType } from "./ticket-types";
-import type { Ticket } from "./types";
+import {
+  RESOLUTION_LABELS,
+  ticketRequestTitle,
+  type ResolutionDecision,
+  type Ticket,
+} from "./types";
 
 const DOCUMENTS_DIR = path.join(process.cwd(), "data", "documents");
 
@@ -52,7 +59,7 @@ function buildMergeMap(ticket: Ticket): Record<string, string> {
   const map: Record<string, string> = {
     folio: ticket.folio,
     fecha: formatDate(Math.floor(Date.now() / 1000)),
-    tipo: ticket.ticketTypeName ?? "",
+    tipo: ticketRequestTitle(ticket),
     cliente_nombre: ticket.clientName ?? "",
     cliente_correo: ticket.clientEmail ?? "",
     cliente_telefono: ticket.clientPhone ?? "",
@@ -97,8 +104,44 @@ function isExcludedLetterField(fieldKey: string, label: string): boolean {
  * Cuerpo por defecto de la carta (1 hoja): datos del cliente + datos de la
  * solicitud (sin comentarios libres) + cláusulas breves.
  */
-function defaultBody(ticket: Ticket): string {
-  const tipo = ticket.ticketTypeName ?? "la solicitud";
+function letterContext(ticket: Ticket): {
+  brandName: string;
+  subtitle: string;
+  committee: string;
+} {
+  const name = ticket.developmentName?.trim() || BRAND.name;
+  let city = "";
+  let committee = `Comité de Arquitectura ${name}`;
+  if (ticket.developmentId) {
+    const dev = db
+      .prepare("SELECT city FROM developments WHERE id = ?")
+      .get(ticket.developmentId) as { city: string | null } | undefined;
+    city = dev?.city?.trim() || "";
+    const row = db
+      .prepare(
+        `SELECT committee_role FROM committee_signature_config
+         WHERE development_id = ? AND active = 1`
+      )
+      .get(ticket.developmentId) as { committee_role: string } | undefined;
+    if (row?.committee_role?.trim()) committee = row.committee_role.trim();
+  }
+  return {
+    brandName: name.toLocaleUpperCase("es-MX"),
+    subtitle: city ? `${name}, ${city}` : name,
+    committee,
+  };
+}
+
+function signatureMarkup(signer: LetterSigner | null): string {
+  const dataUrl = signer?.signatureDataUrl ?? "";
+  if (!/^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(dataUrl)) {
+    return "";
+  }
+  return `<img src="${dataUrl}" alt="" class="sign-img"/>`;
+}
+
+function defaultBody(ticket: Ticket, committee: string): string {
+  const tipo = ticketRequestTitle(ticket);
   const clientRows: Array<[string, string]> = [
     ["Nombre", ticket.clientName ?? ""],
     ["Correo", ticket.clientEmail ?? ""],
@@ -134,7 +177,7 @@ function defaultBody(ticket: Ticket): string {
   return `
     <p>El presente documento respalda la autorización de la solicitud
     <strong>${escapeHtml(tipo)}</strong> por parte del ${escapeHtml(
-      BRAND.committee
+      committee
     )}, solicitada por el Sr./Sra. ${chip(ticket.clientName ?? "")}
     con folio ${chip(ticket.folio)}.</p>
 
@@ -159,19 +202,16 @@ function isLegacyTemplate(tpl: string): boolean {
   return tpl.includes("Carta de Autorización") || tpl.includes("Administración ARC");
 }
 
-function logoMarkup(): string {
-  if (BRAND.logoUrl) {
-    return `<img src="${escapeHtml(BRAND.logoUrl)}" alt="logo oficial" class="logo-img"/>`;
-  }
-  // Sin logo: recuadro placeholder "LOGO OFICIAL" (se reemplaza al definir LETTER_LOGO_URL).
-  return `<div class="logo-ph">LOGO<br/>OFICIAL</div>`;
-}
-
-function wrapDocument(bodyHtml: string, ticket: Ticket): string {
+function wrapDocument(
+  bodyHtml: string,
+  ticket: Ticket,
+  signer: LetterSigner | null
+): string {
   const fecha = formatDate(Math.floor(Date.now() / 1000));
-  const heading = ticket.ticketTypeName
-    ? `Autorización de ${ticket.ticketTypeName}`
-    : "Autorización de solicitud";
+  const heading = `Autorización de ${ticketRequestTitle(ticket)}`;
+  const brand = letterContext(ticket);
+  const signerName = signer?.name?.trim() || BRAND.signer;
+  const signerRole = signer?.jobTitle?.trim() || "";
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"/>
   <style>
@@ -193,12 +233,7 @@ function wrapDocument(bodyHtml: string, ticket: Ticket): string {
     .corner-tr::after { content:""; position:absolute; top:-30px; right:-22px; width:95px; height:95px; background:${BRAND.orange}33; transform: rotate(45deg); }
     .head { display:flex; justify-content:flex-end; align-items:flex-start; margin-bottom: 4px; }
     .brand { text-align:center; }
-    .logo-img { width:52px; height:52px; display:block; margin:0 auto 2px; object-fit: contain; }
-    .logo-ph { width:64px; height:42px; margin:0 auto 4px; border:1.5px dashed #b9c0c8; border-radius:6px;
-      display:flex; align-items:center; justify-content:center; text-align:center;
-      color:#9aa3ab; font-size:7pt; font-weight:700; letter-spacing:.1em; line-height:1.15; }
-    .brand .name { color:${BRAND.teal}; font-weight:700; letter-spacing:.28em; font-size:14pt; }
-    .brand .tag { color:#9aa3ab; font-weight:600; letter-spacing:.36em; font-size:6.5pt; margin-top:1px; }
+    .brand .name { color:${BRAND.teal}; font-weight:700; letter-spacing:.18em; font-size:14pt; }
     h1.title { color:${BRAND.teal}; font-size:18pt; font-weight:800; margin: 4px 0 2px; }
     .subtitle { color:#6b7280; font-size:9pt; font-weight:600; margin-bottom:10px; }
     .meta-row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:4px; }
@@ -222,7 +257,7 @@ function wrapDocument(bodyHtml: string, ticket: Ticket): string {
     .info-row .val { font-size: 9.5pt; color:#3f4650; word-break: break-word; }
     .chip { display:inline; background:transparent; border:0; padding:0; margin:0; color:#3f4650; font-weight:600; }
     .sign { margin-top: 18px; text-align:center; }
-    .sign svg { width:120px; height:42px; }
+    .sign-img { display:block; height:58px; max-width:220px; margin:0 auto 2px; object-fit:contain; }
     .sign .line { width:200px; border-top:1px solid #6b7280; margin: 2px auto 4px; }
     .sign .r1 { font-weight:600; color:#3f4650; font-size:10pt; }
     .sign .r2, .sign .r3 { color:#6b7280; font-size:9pt; }
@@ -244,14 +279,12 @@ function wrapDocument(bodyHtml: string, ticket: Ticket): string {
 
       <div class="head">
         <div class="brand">
-          ${logoMarkup()}
-          <div class="name">${escapeHtml(BRAND.name)}</div>
-          ${BRAND.tagline ? `<div class="tag">${escapeHtml(BRAND.tagline)}</div>` : ""}
+          <div class="name">${escapeHtml(brand.brandName)}</div>
         </div>
       </div>
 
       <h1 class="title">${escapeHtml(BRAND.title)}</h1>
-      <div class="subtitle">${escapeHtml(BRAND.subtitle)}</div>
+      <div class="subtitle">${escapeHtml(brand.subtitle)}</div>
 
       <div class="meta-row">
         <div class="heading">${escapeHtml(heading)}</div>
@@ -262,14 +295,11 @@ function wrapDocument(bodyHtml: string, ticket: Ticket): string {
       <div class="content">${bodyHtml}</div>
 
       <div class="sign">
-        <svg viewBox="0 0 200 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M18 52 C40 8, 60 8, 66 40 C70 60, 84 60, 96 30 C104 12, 120 12, 122 40 C124 62, 150 30, 186 22"
-                stroke="#2b2f36" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-        </svg>
+        ${signatureMarkup(signer)}
         <div class="line"></div>
-        <div class="r1">Firma de autorización</div>
-        <div class="r2">${escapeHtml(BRAND.committee)}</div>
-        <div class="r3">${escapeHtml(BRAND.signer)}</div>
+        <div class="r1">${escapeHtml(signerName)}</div>
+        ${signerRole ? `<div class="r2">${escapeHtml(signerRole)}</div>` : ""}
+        <div class="r3">${escapeHtml(brand.committee)}</div>
       </div>
 
       <div class="footer">
@@ -295,17 +325,23 @@ function wrapDocument(bodyHtml: string, ticket: Ticket): string {
  * generar el PDF. Se usa para la vista previa y para el render a PDF.
  */
 export function buildLetterHtml(
-  ticketId: number
+  ticketId: number,
+  signerUserId?: number | null
 ): { html: string } | { error: string } {
   const ticket = getTicketById(ticketId);
   if (!ticket) return { error: "Ticket no encontrado." };
 
   const type = getTicketType(ticket.ticketTypeId);
   const raw = type?.letterTemplate?.trim();
+  const brand = letterContext(ticket);
   const body =
-    raw && !isLegacyTemplate(raw) ? mergeTemplate(raw, ticket) : defaultBody(ticket);
+    raw && !isLegacyTemplate(raw)
+      ? mergeTemplate(raw, ticket)
+      : defaultBody(ticket, brand.committee);
+  const signer =
+    signerUserId && signerUserId > 0 ? loadLetterSigner(signerUserId) : null;
 
-  return { html: wrapDocument(body, ticket) };
+  return { html: wrapDocument(body, ticket, signer) };
 }
 
 /**
@@ -313,9 +349,10 @@ export function buildLetterHtml(
  * data/documents. Registra el documento y devuelve su metadata.
  */
 export async function generateAuthorizationLetter(
-  ticketId: number
+  ticketId: number,
+  signerUserId?: number | null
 ): Promise<{ filename: string; path: string } | { error: string }> {
-  const built = buildLetterHtml(ticketId);
+  const built = buildLetterHtml(ticketId, signerUserId);
   if ("error" in built) return built;
 
   const ticket = getTicketById(ticketId)!;
@@ -350,9 +387,149 @@ export async function generateAuthorizationLetter(
     };
   }
 
+  db.prepare(
+    `DELETE FROM ticket_documents
+     WHERE ticket_id = ? AND kind = 'authorization_letter'`
+  ).run(ticketId);
   const doc = addDocument({
     ticketId,
     kind: "authorization_letter",
+    filename,
+    path: filePath,
+  });
+  return { filename: doc.filename, path: doc.path };
+}
+
+const RESOLUTION_KIND: Record<ResolutionDecision, string> = {
+  autorizada: "resolution_autorizada",
+  autorizada_con_condiciones: "resolution_condicionada",
+  requiere_correcciones: "resolution_correcciones",
+  no_autorizada: "resolution_no_autorizada",
+};
+
+/**
+ * PDF de resolución del comité: solicitud, firmas, historial y hash.
+ * Si el render falla, la decisión ya quedó guardada en el ticket.
+ */
+export async function generateResolutionLetter(
+  ticketId: number
+): Promise<{ filename: string; path: string } | { error: string }> {
+  const ticket = getTicketById(ticketId);
+  if (!ticket) return { error: "Ticket no encontrado." };
+  const decision = ticket.resolutionDecision;
+  if (!decision) return { error: "El ticket no tiene una resolución." };
+
+  const history = db
+    .prepare(
+      `SELECT from_status, to_status, changed_by, note, created_at
+       FROM ticket_status_history WHERE ticket_id = ? ORDER BY id ASC`
+    )
+    .all(ticketId) as Array<{
+    from_status: string | null;
+    to_status: string;
+    changed_by: string | null;
+    note: string | null;
+    created_at: number;
+  }>;
+
+  let ownerSigned = "Sin firma registrada";
+  try {
+    const sig = db
+      .prepare(
+        `SELECT signer_name, signed_at FROM request_signatures
+         WHERE ticket_id = ? ORDER BY id DESC LIMIT 1`
+      )
+      .get(ticketId) as { signer_name?: string; created_at?: number } | undefined;
+    if (sig) {
+      ownerSigned = sig.signer_name?.trim() || "Propietario";
+    }
+  } catch {
+    ownerSigned = "Sin firma registrada";
+  }
+
+  let committeeName = "Comité de Arquitectura";
+  let committeeRole = "Comité de Arquitectura";
+  if (ticket.developmentId) {
+    const row = db
+      .prepare(
+        `SELECT committee_name, committee_role FROM committee_signature_config
+         WHERE development_id = ? AND active = 1`
+      )
+      .get(ticket.developmentId) as
+      | { committee_name: string; committee_role: string }
+      | undefined;
+    if (row) {
+      committeeName = row.committee_name;
+      committeeRole = row.committee_role;
+    }
+  }
+
+  const historyHtml = history
+    .map((row) => {
+      const when = new Date(row.created_at * 1000).toLocaleString("es-MX");
+      return `<li>${escapeHtml(when)} — ${escapeHtml(row.from_status ?? "inicio")} → ${escapeHtml(row.to_status)}${row.note ? `: ${escapeHtml(row.note)}` : ""} (${escapeHtml(row.changed_by ?? "sistema")})</li>`;
+    })
+    .join("");
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
+    <style>
+      body { font-family: Georgia, serif; color: #1f2937; margin: 48px; }
+      h1 { font-size: 22px; margin-bottom: 4px; }
+      .muted { color: #6b7280; font-size: 13px; }
+      .box { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; }
+      ul { padding-left: 18px; }
+      .hash { font-family: ui-monospace, monospace; font-size: 11px; word-break: break-all; }
+    </style></head><body>
+    <h1>${escapeHtml(RESOLUTION_LABELS[decision])}</h1>
+    <p class="muted">${escapeHtml(ticket.developmentName ?? "Desarrollo")} · Folio ${escapeHtml(ticket.folio)}</p>
+    <div class="box">
+      <p><strong>Solicitud:</strong> ${escapeHtml(ticket.modificationName ?? ticket.ticketTypeName ?? "Modificación")}</p>
+      <p><strong>Cliente:</strong> ${escapeHtml(ticket.clientName ?? "")}</p>
+      <p><strong>Vivienda:</strong> ${escapeHtml(ticket.propertyIdentifier ?? "—")}</p>
+      <p><strong>Nota del comité:</strong> ${escapeHtml(ticket.resolutionNote || "—")}</p>
+    </div>
+    <div class="box">
+      <p><strong>Firma del propietario:</strong> ${escapeHtml(ownerSigned)}</p>
+      <p><strong>${escapeHtml(committeeRole)}:</strong> ${escapeHtml(committeeName)}</p>
+    </div>
+    <h2>Historial</h2>
+    <ul>${historyHtml || "<li>Sin movimientos previos.</li>"}</ul>
+    <p class="hash">Integridad: ${escapeHtml(ticket.resolutionHash ?? "")}</p>
+    </body></html>`;
+
+  await mkdir(DOCUMENTS_DIR, { recursive: true });
+  const filename = `resolucion-${ticket.folio}-${decision}.pdf`;
+  const filePath = path.join(DOCUMENTS_DIR, filename);
+
+  try {
+    const puppeteer = (await import("puppeteer")).default;
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    try {
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: "load" });
+      await page.pdf({
+        path: filePath,
+        format: "A4",
+        printBackground: true,
+        margin: { top: "16px", right: "16px", bottom: "16px", left: "16px" },
+      });
+    } finally {
+      await browser.close();
+    }
+  } catch (err) {
+    return {
+      error:
+        "No se pudo generar el PDF de resolución: " +
+        (err instanceof Error ? err.message : String(err)),
+    };
+  }
+
+  const doc = addDocument({
+    ticketId,
+    kind: RESOLUTION_KIND[decision],
     filename,
     path: filePath,
   });

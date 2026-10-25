@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isPortalAuthError, requirePortalUser } from "@/lib/portal/auth";
+import { resumeSla } from "@/lib/portal/sla";
 import { addComment, getTicketById, setTicketAwaiting } from "@/lib/portal/tickets";
 import { broadcastTicketEvent } from "@/lib/ws-notify";
 
@@ -36,6 +37,7 @@ export async function POST(req: Request, { params }: Ctx) {
   // El cliente respondió: si el ticket esperaba info/respuesta, lo limpiamos.
   if (ticket.awaitingKind === "info" || ticket.awaitingKind === "answer") {
     setTicketAwaiting(ticketId, "none");
+    resumeSla(ticketId, { reason: "El cliente respondió", createdBy: "cliente" });
   }
 
   // Tiempo real: el admin recibe popup + refresco; el cliente no notifica por WA.

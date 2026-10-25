@@ -25,7 +25,14 @@ const PORTAL_PUBLIC_PATHS = new Set([
   "/api/portal/login",
   "/api/portal/logout",
   "/api/portal/me",
+  "/api/portal/identity/read",
+  "/api/portal/identity/confirm",
 ]);
+
+/** Catálogo de registro: solo GET, sin PII, rate-limit en cada route. */
+function isPublicPortalCatalogPath(pathname: string): boolean {
+  return pathname === "/api/portal/catalog" || pathname.startsWith("/api/portal/catalog/");
+}
 
 function enforceApiAuth(request: NextRequest): NextResponse | null {
   const { pathname } = request.nextUrl;
@@ -37,7 +44,7 @@ function enforceApiAuth(request: NextRequest): NextResponse | null {
 
   // Portal de clientes: sesión propia (arc_portal_session), separada del admin.
   if (pathname.startsWith("/api/portal/")) {
-    if (PORTAL_PUBLIC_PATHS.has(pathname)) {
+    if (PORTAL_PUBLIC_PATHS.has(pathname) || isPublicPortalCatalogPath(pathname)) {
       return NextResponse.next();
     }
     const portalSession = request.cookies.get(PORTAL_COOKIE)?.value;

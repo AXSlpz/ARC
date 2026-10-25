@@ -11,6 +11,11 @@ import {
   deleteCondominioDocuments,
 } from "@/lib/documents";
 import { deleteReglamentosIndex } from "@/lib/reglamentos";
+import {
+  getDevelopmentForCondominio,
+  resolveDevelopmentAssignment,
+  setCondominioDevelopment,
+} from "@/lib/portal/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -38,25 +43,48 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const updated = updateCondominio(numId, parsed.data);
+    const { developmentId, newDevelopmentName, ...condoFields } = parsed.data;
+    const updated = updateCondominio(numId, condoFields);
     if (!updated) {
       return NextResponse.json({ error: "Condominio no encontrado" }, { status: 404 });
     }
+
+    if (developmentId !== undefined || newDevelopmentName !== undefined) {
+      const resolved = resolveDevelopmentAssignment({
+        developmentId: developmentId ?? null,
+        newDevelopmentName,
+      });
+      setCondominioDevelopment(numId, resolved);
+    }
+
+    const development = getDevelopmentForCondominio(numId);
 
     logAudit(auth.id, auth.username, "condominio.update", "condominio", numId, {
       name: updated.name,
       prefijo: updated.prefijo,
       tipo: updated.tipo,
       fields: Object.keys(parsed.data),
+      developmentId: development?.id ?? null,
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json({
+      ...updated,
+      development_id: development?.id ?? null,
+      development_name: development?.name ?? null,
+    });
   } catch (err) {
     if (err instanceof Error && err.message.includes("UNIQUE")) {
       return NextResponse.json(
         { error: "Ya existe un condominio con ese nombre" },
         { status: 409 }
       );
+    }
+    if (
+      err instanceof Error &&
+      (err.message.includes("Desarrollo no encontrado") ||
+        err.message.includes("Condominio no encontrado"))
+    ) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
     }
     return NextResponse.json(
       { error: "Error al actualizar condominio" },

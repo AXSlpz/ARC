@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { Component, useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { LineSetupScreen, type WaLineStatus } from "./LineSetupScreen";
 import { LoginScreen } from "./LoginScreen";
 import { DashboardHeader } from "./DashboardHeader";
 import { ConversationList } from "./ConversationList";
 import { ConversationPanel } from "./ConversationPanel";
-import { AdminPanel } from "./AdminPanel";
 import type {
   AdminSettings,
   ChatColors,
@@ -17,15 +17,112 @@ import { useDashboardSocket } from "@/hooks/useDashboardSocket";
 import { useConversationNotifications } from "@/hooks/useConversationNotifications";
 import { useReadConversations } from "@/hooks/useReadConversations";
 import { usePwaPeriodicRefresh } from "@/hooks/usePwaPeriodicRefresh";
-import { MetricsDashboard } from "./MetricsDashboard";
-import { ResidentesView } from "./residentes/ResidentesView";
-import { TicketsAdminView } from "./tickets/TicketsAdminView";
-import { FinanceView } from "./finance/FinanceView";
-import {
-  NotificationControls,
-  NotificationPermissionBanner,
-} from "./NotificationControls";
+import type { DashboardView } from "@/lib/dashboard-views";
+import { ACTIVE_VIEW_STORAGE_KEY, DASHBOARD_VIEWS, isDashboardModuleVisible } from "@/lib/dashboard-views";
+import { NotificationPermissionBanner } from "./NotificationControls";
 import { can, isAdminOrAbove } from "@/lib/permissions";
+
+const VIEW_FALLBACK: DashboardView[] = [
+  "chats",
+  "residentes",
+  "productos",
+  "cotizaciones",
+  "embudos",
+  "tickets",
+  "finanzas",
+  "metrics",
+];
+
+function viewAllowed(user: SessionUser, view: DashboardView): boolean {
+  if (!isDashboardModuleVisible(user.role, user.enabledModules, view)) return false;
+  if (view === "productos") return can(user, "crm_catalog");
+  if (view === "cotizaciones") return can(user, "crm_quotes");
+  if (view === "embudos") return can(user, "crm_pipelines");
+  if (view === "finanzas" || view === "metrics") return isAdminOrAbove(user.role);
+  if (view === "prospectos") return false;
+  return true;
+}
+
+class DashboardViewBoundary extends Component<
+  { resetKey: string; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidUpdate(prev: { resetKey: string }) {
+    if (prev.resetKey !== this.props.resetKey && this.state.failed) {
+      this.setState({ failed: false });
+    }
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-sm text-slate-600">
+          Este módulo no pudo abrirse. Elige otro menú de arriba.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function ViewChunkFallback() {
+  return (
+    <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-sm text-gray-500">
+      Cargando módulo…
+    </div>
+  );
+}
+
+const AdminPanel = dynamic(
+  () => import("./AdminPanel").then((m) => ({ default: m.AdminPanel })),
+  { ssr: false },
+);
+const ResidentesView = dynamic(
+  () =>
+    import("./residentes/ResidentesView").then((m) => ({
+      default: m.ResidentesView,
+    })),
+  { ssr: false, loading: () => <ViewChunkFallback /> },
+);
+const ProductosView = dynamic(
+  () => import("./crm/ProductosView").then((m) => ({ default: m.ProductosView })),
+  { ssr: false, loading: () => <ViewChunkFallback /> },
+);
+const CotizacionesView = dynamic(
+  () =>
+    import("./crm/CotizacionesView").then((m) => ({
+      default: m.CotizacionesView,
+    })),
+  { ssr: false, loading: () => <ViewChunkFallback /> },
+);
+const EmbudosView = dynamic(
+  () => import("./crm/EmbudosView").then((m) => ({ default: m.EmbudosView })),
+  { ssr: false, loading: () => <ViewChunkFallback /> },
+);
+const TicketsAdminView = dynamic(
+  () =>
+    import("./tickets/TicketsAdminView").then((m) => ({
+      default: m.TicketsAdminView,
+    })),
+  { ssr: false, loading: () => <ViewChunkFallback /> },
+);
+const FinanceView = dynamic(
+  () => import("./finance/FinanceView").then((m) => ({ default: m.FinanceView })),
+  { ssr: false, loading: () => <ViewChunkFallback /> },
+);
+const MetricsDashboard = dynamic(
+  () =>
+    import("./MetricsDashboard").then((m) => ({
+      default: m.MetricsDashboard,
+    })),
+  { ssr: false, loading: () => <ViewChunkFallback /> },
+);
 
 interface Conversation {
   id: number;
@@ -60,26 +157,18 @@ interface Conversation {
   sender_name?: string | null;
 }
 
-type DashboardView =
-  | "chats"
-  | "metrics"
-  | "residentes"
-  | "tickets"
-  | "finanzas";
-
-const ACTIVE_VIEW_KEY = "arc-active-view";
-const DASHBOARD_VIEWS: DashboardView[] = [
-  "chats",
-  "metrics",
-  "residentes",
-  "tickets",
-  "finanzas",
-];
-
 function readStoredActiveView(): DashboardView {
   if (typeof window === "undefined") return "chats";
   try {
-    const stored = sessionStorage.getItem(ACTIVE_VIEW_KEY);
+    const stored = sessionStorage.getItem(ACTIVE_VIEW_STORAGE_KEY);
+    if (stored === "prospectos") {
+      try {
+        sessionStorage.setItem("residentes-tab", "prospectos");
+      } catch {
+        /* ignore */
+      }
+      return "residentes";
+    }
     if (stored && (DASHBOARD_VIEWS as string[]).includes(stored)) {
       return stored as DashboardView;
     }
@@ -89,9 +178,12 @@ function readStoredActiveView(): DashboardView {
   return "chats";
 }
 
-export function ConnectionGate() {
-  const [user, setUser] = useState<SessionUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+export function ConnectionGate({
+  initialUser,
+}: {
+  initialUser: SessionUser | null;
+}) {
+  const [user, setUser] = useState<SessionUser | null>(initialUser);
   const [lines, setLines] = useState<WaLineStatus[]>([]);
   const [connectedCount, setConnectedCount] = useState(0);
   const [panelEntered, setPanelEntered] = useState(false);
@@ -100,7 +192,8 @@ export function ConnectionGate() {
   const [lineFilter, setLineFilter] = useState<number | "all">("all");
   const [elapsed, setElapsed] = useState(0);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [activeView, setActiveView] = useState<DashboardView>(readStoredActiveView);
+  const [activeView, setActiveView] = useState<DashboardView>("chats");
+  const [viewRestored, setViewRestored] = useState(false);
   const [metricsRefreshKey, setMetricsRefreshKey] = useState(0);
   const [ticketRefreshKey, setTicketRefreshKey] = useState(0);
   const [focusTicketId, setFocusTicketId] = useState<number | null>(null);
@@ -119,32 +212,56 @@ export function ConnectionGate() {
   const { markRead, isUnread } = useReadConversations();
 
   const checkSession = useCallback(async () => {
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => ac.abort(), 8000);
     try {
-      const res = await fetch("/api/auth/me");
+      const res = await fetch("/api/auth/me", {
+        signal: ac.signal,
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-      } else {
+        const data = (await res.json()) as { user?: SessionUser };
+        setUser(data.user ?? null);
+      } else if (res.status === 401) {
         setUser(null);
       }
     } catch {
-      setUser(null);
+      /* Conserva initialUser: un compile lento no debe vaciar la sesión. */
     } finally {
-      setAuthLoading(false);
+      window.clearTimeout(timer);
     }
   }, []);
+
+  useEffect(() => {
+    setUser(initialUser);
+  }, [initialUser]);
 
   useEffect(() => {
     checkSession();
   }, [checkSession]);
 
   useEffect(() => {
+    const onChange = () => {
+      void checkSession();
+    };
+    window.addEventListener("arc-modules-changed", onChange);
+    return () => window.removeEventListener("arc-modules-changed", onChange);
+  }, [checkSession]);
+
+  useEffect(() => {
+    setActiveView(readStoredActiveView());
+    setViewRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!viewRestored) return;
     try {
-      sessionStorage.setItem(ACTIVE_VIEW_KEY, activeView);
+      sessionStorage.setItem(ACTIVE_VIEW_STORAGE_KEY, activeView);
     } catch {
       /* ignore */
     }
-  }, [activeView]);
+  }, [activeView, viewRestored]);
 
   const fetchAdminSettings = useCallback(async () => {
     try {
@@ -193,6 +310,16 @@ export function ConnectionGate() {
   );
 
   const isAdminUser = user ? isAdminOrAbove(user.role) : false;
+  const shownView = useMemo(() => {
+    if (!user) return activeView;
+    if (viewAllowed(user, activeView)) return activeView;
+    return VIEW_FALLBACK.find((view) => viewAllowed(user, view)) ?? activeView;
+  }, [user, activeView]);
+
+  useEffect(() => {
+    if (!viewRestored || !user) return;
+    if (shownView !== activeView) setActiveView(shownView);
+  }, [shownView, activeView, viewRestored, user]);
   const canAdvancedAdmin = user ? can(user, "advanced_admin") : false;
   const canUsePanel =
     isAdminUser || (connectedCount >= 1 && panelEntered);
@@ -282,10 +409,15 @@ export function ConnectionGate() {
         const ticketId = Number(data.ticketId);
         const message =
           kind === "created"
-            ? "Nueva solicitud creada"
+            ? data.category === "servicio"
+              ? "Nuevo servicio solicitado"
+              : "Nueva solicitud creada"
             : kind === "attachment"
               ? "El cliente adjuntó un archivo"
               : "El cliente agregó un comentario";
+        if (kind === "created") {
+          window.dispatchEvent(new CustomEvent("arc-admin-notice"));
+        }
         const pid = Date.now() + Math.random();
         setTicketPopups((prev) => [
           ...prev.slice(-4),
@@ -432,14 +564,6 @@ export function ConnectionGate() {
     setTimeout(() => clearInterval(fastPoll), FAST_POLL_TIMEOUT + 500);
   };
 
-  if (authLoading) {
-    return (
-      <div className="app-shell flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-gray-200 border-t-emerald-500 rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   if (!user) {
     return <LoginScreen onLogin={setUser} />;
   }
@@ -468,9 +592,14 @@ export function ConnectionGate() {
         businessName={adminSettings.businessName}
         user={user}
         onLogout={handleLogout}
+        onRefreshUser={() => void checkSession()}
         onOpenAdmin={canAdvancedAdmin ? () => setAdminOpen(true) : undefined}
         activeView={activeView}
         onViewChange={setActiveView}
+        onOpenTicket={(ticketId) => {
+          setActiveView("tickets");
+          setFocusTicketId(ticketId);
+        }}
       />
 
       <NotificationPermissionBanner enabled={!!user && canUsePanel} />
@@ -528,11 +657,28 @@ export function ConnectionGate() {
           }}
         />
       )}
-      {activeView === "residentes" ? (
+      <DashboardViewBoundary resetKey={shownView}>
+      {user && !viewAllowed(user, shownView) ? (
+        <main className="flex flex-1 items-center justify-center text-sm text-gray-500">
+          No hay módulos activos para tu perfil.
+        </main>
+      ) : shownView === "residentes" ? (
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <ResidentesView />
         </main>
-      ) : activeView === "tickets" ? (
+      ) : shownView === "productos" ? (
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <ProductosView />
+        </main>
+      ) : shownView === "cotizaciones" ? (
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <CotizacionesView />
+        </main>
+      ) : shownView === "embudos" ? (
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <EmbudosView />
+        </main>
+      ) : shownView === "tickets" ? (
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <TicketsAdminView
             isAdmin={isAdminUser}
@@ -541,11 +687,11 @@ export function ConnectionGate() {
             onFocusHandled={() => setFocusTicketId(null)}
           />
         </main>
-      ) : activeView === "finanzas" && isAdminUser ? (
+      ) : shownView === "finanzas" && isAdminUser ? (
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <FinanceView />
         </main>
-      ) : activeView === "metrics" && isAdminUser ? (
+      ) : shownView === "metrics" && isAdminUser ? (
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <MetricsDashboard lines={lines} refreshKey={metricsRefreshKey} />
         </main>
@@ -593,6 +739,7 @@ export function ConnectionGate() {
           </main>
         </div>
       )}
+      </DashboardViewBoundary>
     </div>
   );
 }

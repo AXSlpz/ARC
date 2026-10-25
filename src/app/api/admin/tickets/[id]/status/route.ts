@@ -51,15 +51,19 @@ export async function POST(req: Request, { params }: Ctx) {
   });
 
   let letterGenerated = false;
+  let letterError: string | null = null;
   if (toStatus === "autorizado") {
-    const result = await generateAuthorizationLetter(ticketId);
+    const result = await generateAuthorizationLetter(ticketId, auth.id);
     letterGenerated = "filename" in result;
     if (!letterGenerated) {
-      console.error("[tickets] carta:", (result as { error: string }).error);
+      letterError = (result as { error: string }).error;
+      console.error("[tickets] carta:", letterError);
     }
-    void notifyTicketAuthorized(ticket, letterGenerated).catch((e) =>
-      console.error("[tickets] notifyAuthorized:", e)
-    );
+    if (existing.status !== "autorizado") {
+      void notifyTicketAuthorized(ticket, letterGenerated).catch((e) =>
+        console.error("[tickets] notifyAuthorized:", e)
+      );
+    }
   } else {
     void notifyStatusChanged(ticket, toStatus as TicketStatus, note).catch((e) =>
       console.error("[tickets] notifyStatus:", e)
@@ -76,5 +80,5 @@ export async function POST(req: Request, { params }: Ctx) {
   });
 
   const fresh = getTicketById(ticketId);
-  return NextResponse.json({ ticket: fresh, letterGenerated });
+  return NextResponse.json({ ticket: fresh, letterGenerated, letterError });
 }

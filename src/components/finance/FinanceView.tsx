@@ -16,6 +16,7 @@ import {
   today,
 } from "./helpers";
 import { CategoriesManager } from "./CategoriesManager";
+import { MoneyInput } from "@/components/crm/MoneyInput";
 
 function SummaryCard({
   label,
@@ -53,7 +54,7 @@ function NewEntryForm({
   const [kind, setKind] = useState<FinanceKind>("income");
   const [categories, setCategories] = useState<FinanceCategory[]>([]);
   const [categoryId, setCategoryId] = useState<string>("");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(0);
   const [occurredOn, setOccurredOn] = useState(today());
   const [description, setDescription] = useState("");
   const [method, setMethod] = useState("");
@@ -70,7 +71,7 @@ function NewEntryForm({
   }, [kind, refreshKey]);
 
   const handleSubmit = async () => {
-    const amountNum = Number(amount);
+    const amountNum = amount;
     if (!Number.isFinite(amountNum) || amountNum <= 0) {
       toast("Ingresa un monto válido mayor a 0.", "error");
       return;
@@ -94,7 +95,7 @@ function NewEntryForm({
         }),
       });
       toast("Registro guardado.", "success");
-      setAmount("");
+      setAmount(0);
       setDescription("");
       setMethod("");
       setReference("");
@@ -144,14 +145,11 @@ function NewEntryForm({
           <label className="mb-1 block text-xs font-medium text-slate-500">
             Monto (MXN)
           </label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
+          <MoneyInput
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
+            aria-label="Monto en pesos"
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+            onValueChange={setAmount}
           />
         </div>
         <div>

@@ -381,10 +381,19 @@ export async function getAuthUser(): Promise<SessionUser | null> {
     .get(sessionId) as UserRow | undefined;
 
   if (!row) return null;
-  if (!row.totp_enabled) return null;
 
   await refreshSessionCookie(sessionId, idleRemaining);
   return mapUser(row);
+}
+
+/** Cierra las demás sesiones del usuario y deja viva la actual. */
+export async function revokeOtherSessions(userId: number): Promise<void> {
+  const cookieStore = await cookies();
+  const sessionId = cookieStore.get(SESSION_COOKIE)?.value ?? "";
+  db.prepare("DELETE FROM sessions WHERE user_id = ? AND id != ?").run(
+    userId,
+    sessionId
+  );
 }
 
 export function setSessionCookie(response: NextResponse, sessionId: string): void {

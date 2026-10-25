@@ -68,31 +68,37 @@ export type TicketStatus =
   | "en_revision"
   | "autorizado"
   | "rechazado"
-  | "en_proceso"
-  | "completado"
-  | "cerrado"
-  | "cancelado";
+  | "cancelado"
+  /** Retenido: el usuario tiene un claim pending. Se activa al aprobar. */
+  | "held";
 
 export const TICKET_STATUSES: TicketStatus[] = [
   "nuevo",
   "en_revision",
+  "held",
   "autorizado",
   "rechazado",
-  "en_proceso",
-  "completado",
-  "cerrado",
   "cancelado",
 ];
+
+/** Nombre que ve el cliente y el panel: la modificación elegida, o el tipo si no hay catálogo. */
+export function ticketRequestTitle(ticket: {
+  modificationName?: string | null;
+  ticketTypeName?: string | null;
+}): string {
+  const modification = ticket.modificationName?.trim();
+  if (modification) return modification;
+  const typeName = ticket.ticketTypeName?.trim();
+  return typeName || "Solicitud";
+}
 
 export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   nuevo: "Nuevo",
   en_revision: "En revisión",
   autorizado: "Autorizado",
   rechazado: "Rechazado",
-  en_proceso: "En proceso",
-  completado: "Completado",
-  cerrado: "Cerrado",
   cancelado: "Cancelado",
+  held: "En espera de verificación",
 };
 
 /** Estatus en los que el ticket se considera "activo" (para el bot/WhatsApp). */
@@ -100,7 +106,6 @@ export const ACTIVE_TICKET_STATUSES: TicketStatus[] = [
   "nuevo",
   "en_revision",
   "autorizado",
-  "en_proceso",
 ];
 
 /** Estados de espera de respuesta del cliente (via portal o WhatsApp). */
@@ -151,6 +156,8 @@ export interface TicketAttachment {
   mime: string;
   sizeBytes: number;
   scanned: string;
+  /** Categoría del documento: carta_no_adeudo, ficha_tecnica, croquis, fotos, otro. */
+  attachmentCategory: string | null;
   createdAt: number;
 }
 
@@ -179,7 +186,40 @@ export interface Ticket {
   history?: TicketStatusHistory[];
   documents?: TicketDocument[];
   attachments?: TicketAttachment[];
+  requestKind?: string | null;
+  modificationCatalogId?: number | null;
+  modificationName?: string | null;
+  propertyClaimId?: number | null;
+  developmentId?: number | null;
+  developmentName?: string | null;
+  propertyIdentifier?: string | null;
+  slaStatus?: string | null;
+  slaTargetAt?: number | null;
+  resolutionDecision?: ResolutionDecision | null;
+  resolutionNote?: string | null;
+  resolutionHash?: string | null;
 }
+
+/** Decisión del comité sobre una solicitud de modificación. */
+export type ResolutionDecision =
+  | "autorizada"
+  | "autorizada_con_condiciones"
+  | "requiere_correcciones"
+  | "no_autorizada";
+
+export const RESOLUTION_DECISIONS: ResolutionDecision[] = [
+  "autorizada",
+  "autorizada_con_condiciones",
+  "requiere_correcciones",
+  "no_autorizada",
+];
+
+export const RESOLUTION_LABELS: Record<ResolutionDecision, string> = {
+  autorizada: "Autorizada",
+  autorizada_con_condiciones: "Autorizada con condiciones",
+  requiere_correcciones: "Requiere correcciones",
+  no_autorizada: "No autorizada",
+};
 
 export interface NotificationTemplate {
   id: number;

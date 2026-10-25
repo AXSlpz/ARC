@@ -34,6 +34,7 @@ export function buildCspHeader(nonce: string): string {
     `connect-src ${connectSrc}`,
     "font-src 'self'",
     "object-src 'none'",
+    "frame-src 'self' blob:",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",

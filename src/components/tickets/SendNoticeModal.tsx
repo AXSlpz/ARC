@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NotificationTemplate } from "@/lib/portal/types";
 import { useToast } from "@/components/Toast";
 import { fetchJson } from "./helpers";
+import {
+  DetailPopup,
+} from "@/components/residentes/DetailPopup";
+import { fieldClass, primaryBtn, secondaryBtn } from "@/components/crm/CrmUi";
 
 export interface NoticeResidentPick {
   id: number;
@@ -74,7 +78,6 @@ export function SendNoticeModal({
   onSent,
 }: SendNoticeModalProps) {
   const { toast } = useToast();
-  const titleId = useId();
   const searchRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const wasOpenRef = useRef(false);
@@ -188,24 +191,30 @@ export function SendNoticeModal({
     };
   }, [open, needsPick, debouncedSearch]);
 
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
       }
     };
     document.addEventListener("keydown", onKey);
     const t = window.setTimeout(() => {
+      const panel = panelRef.current;
+      const active = document.activeElement;
+      if (panel && active instanceof Node && panel.contains(active)) return;
       if (needsPick && !resident) searchRef.current?.focus();
-      else panelRef.current?.querySelector<HTMLElement>("select, textarea, button")?.focus();
+      else panel?.querySelector<HTMLElement>("select, textarea, button")?.focus();
     }, 0);
     return () => {
       document.removeEventListener("keydown", onKey);
       window.clearTimeout(t);
     };
-  }, [open, onClose, needsPick, resident]);
+  }, [open, needsPick, resident]);
 
   const handleSend = useCallback(async () => {
     if (!resident) {
@@ -256,53 +265,39 @@ export function SendNoticeModal({
     : "";
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden
-      />
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-      >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
-          <div className="min-w-0">
-            <h2 id={titleId} className="text-lg font-bold text-slate-900">
-              Enviar notificación
-            </h2>
-            <p className="mt-0.5 text-sm text-slate-500">
-              Se crea un ticket y se avisa por correo y WhatsApp si hay datos.
-            </p>
-          </div>
+    <DetailPopup
+      title="Enviar notificación"
+      subtitle="Se crea un ticket y se avisa por correo y WhatsApp si hay datos."
+      onClose={onClose}
+      size="md"
+      layer="form"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className={secondaryBtn}>
+            Cancelar
+          </button>
           <button
             type="button"
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            aria-label="Cerrar"
+            onClick={handleSend}
+            disabled={
+              sending ||
+              !resident ||
+              !templateId ||
+              !hasContact(resident)
+            }
+            className={primaryBtn}
           >
-            <svg
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
-            >
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
+            {sending ? "Enviando…" : "Enviar"}
           </button>
-        </div>
-
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+        </>
+      }
+    >
+      <div ref={panelRef} className="space-y-4">
           {showSearch ? (
             <div>
               <label
                 htmlFor="notice-resident-search"
-                className="mb-1 block text-sm font-medium text-slate-700"
+                className="mb-1 block text-xs font-medium text-gray-600"
               >
                 Buscar residente
               </label>
@@ -312,22 +307,22 @@ export function SendNoticeModal({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Nombre, correo, celular o vivienda…"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-violet-400 focus:outline-none"
+                className={fieldClass}
                 autoComplete="off"
               />
               {searching && (
-                <p className="mt-2 text-xs text-slate-500">Buscando…</p>
+                <p className="mt-2 text-xs text-gray-500">Buscando…</p>
               )}
               {searchError && (
                 <p className="mt-2 text-sm text-red-600">{searchError}</p>
               )}
               {!searching && debouncedSearch && results.length === 0 && !searchError && (
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-gray-500">
                   No hay residentes activos que coincidan.
                 </p>
               )}
               {results.length > 0 && (
-                <ul className="mt-2 max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+                <ul className="mt-2 max-h-56 divide-y divide-violet-50 overflow-y-auto rounded-lg border border-violet-100">
                   {results.map((r) => (
                     <li key={r.id}>
                       <button
@@ -338,15 +333,15 @@ export function SendNoticeModal({
                         }}
                         className="flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left hover:bg-violet-50"
                       >
-                        <span className="font-medium text-slate-900">
+                        <span className="font-medium text-gray-900">
                           {r.nombre}
                         </span>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-gray-500">
                           {r.condominio_name}
                           {r.num_vivienda != null && ` · Viv. ${r.num_vivienda}`}
                           {r.num_coto != null && ` · Coto ${r.num_coto}`}
                         </span>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-gray-400">
                           {[r.celular, r.email].filter(Boolean).join(" · ") ||
                             "Sin celular ni correo"}
                         </span>
@@ -357,17 +352,17 @@ export function SendNoticeModal({
               )}
             </div>
           ) : resident ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+            <div className="rounded-xl border border-violet-100 bg-violet-50/40 px-3 py-2.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-medium text-slate-900">{resident.nombre}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="font-medium text-gray-900">{resident.nombre}</p>
+                  <p className="text-xs text-gray-500">
                     {resident.condominio_name ?? "—"}
                     {resident.num_vivienda != null &&
                       ` · Viv. ${resident.num_vivienda}`}
                     {resident.num_coto != null && ` · Coto ${resident.num_coto}`}
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-gray-400">
                     {[resident.celular, resident.email]
                       .filter((v) => v != null && String(v).trim() !== "")
                       .join(" · ") || "Sin celular ni correo"}
@@ -401,14 +396,14 @@ export function SendNoticeModal({
               <div>
                 <label
                   htmlFor="notice-template"
-                  className="mb-1 block text-sm font-medium text-slate-700"
+                  className="mb-1 block text-xs font-medium text-gray-600"
                 >
                   Plantilla
                 </label>
                 {templatesError ? (
                   <p className="text-sm text-red-600">{templatesError}</p>
                 ) : templates.length === 0 ? (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-gray-500">
                     No hay plantillas activas. Crea una en la pestaña
                     «Plantillas de notificación».
                   </p>
@@ -421,7 +416,7 @@ export function SendNoticeModal({
                         e.target.value ? Number(e.target.value) : ""
                       )
                     }
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-violet-400 focus:outline-none"
+                    className={fieldClass}
                   >
                     <option value="">Selecciona una plantilla…</option>
                     {templates.map((t) => (
@@ -435,10 +430,10 @@ export function SendNoticeModal({
 
               {selectedTemplate && (
                 <div>
-                  <p className="mb-1 text-sm font-medium text-slate-700">
+                  <p className="mb-1 text-sm font-medium text-gray-700">
                     Vista previa
                   </p>
-                  <div className="whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  <div className="whitespace-pre-wrap rounded-lg border border-violet-100 bg-violet-50/40 px-3 py-2 text-sm text-gray-700">
                     {preview}
                   </div>
                 </div>
@@ -447,10 +442,10 @@ export function SendNoticeModal({
               <div>
                 <label
                   htmlFor="notice-extra"
-                  className="mb-1 block text-sm font-medium text-slate-700"
+                  className="mb-1 block text-xs font-medium text-gray-600"
                 >
                   Nota adicional{" "}
-                  <span className="font-normal text-slate-400">
+                  <span className="font-normal text-gray-400">
                     (opcional, reemplaza {"{{motivo}}"})
                   </span>
                 </label>
@@ -459,7 +454,7 @@ export function SendNoticeModal({
                   value={extraNote}
                   onChange={(e) => setExtraNote(e.target.value)}
                   rows={3}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-violet-400 focus:outline-none"
+                  className={fieldClass}
                   placeholder="Ej. corte de agua el martes de 9 a 13 h"
                 />
               </div>
@@ -472,30 +467,6 @@ export function SendNoticeModal({
             </p>
           )}
         </div>
-
-        <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-5 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={
-              sending ||
-              !resident ||
-              !templateId ||
-              !hasContact(resident)
-            }
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {sending ? "Enviando…" : "Enviar"}
-          </button>
-        </div>
-      </div>
-    </div>
+    </DetailPopup>
   );
 }

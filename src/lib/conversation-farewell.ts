@@ -88,15 +88,11 @@ function pickRandom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]!;
 }
 
-/**
- * Tras despedida del residente: solo la encuesta (sin cierre conversacional).
- * Al responder 1–5, saveSurvey cierra la conversación.
- */
 export function buildFarewellWithSurveyResponse(
   _displayName?: string | null,
   _pushName?: string | null
 ): string {
-  return SURVEY_PROMPT;
+  return "Con gusto. Cuando necesites algo de ARC o del reglamento de construcción, aquí estoy.";
 }
 
 /** Cierre por encuesta sin respuesta: no reenviar la encuesta. */

@@ -1,9 +1,9 @@
 import db from "../db";
-import { initPhase2Schema } from "./schema";
+import { initPortalSchema } from "./init-portal";
 import { FIELD_TYPES } from "./types";
 import type { FieldType, TicketType, TicketTypeField } from "./types";
 
-initPhase2Schema();
+initPortalSchema();
 
 interface TypeRow {
   id: number;
@@ -85,6 +85,36 @@ export function listTicketTypes(opts: { activeOnly?: boolean } = {}): TicketType
     type.fields = listFieldsForType(r.id);
     return type;
   });
+}
+
+const MODIFICATION_TYPE_SLUG = "modificacion";
+
+/** Tipo interno de las solicitudes del wizard. No usa el ejemplo del tanque de gas. */
+export function ensureModificationTicketType(): TicketType {
+  const existing = db
+    .prepare("SELECT * FROM ticket_types WHERE slug = ?")
+    .get(MODIFICATION_TYPE_SLUG) as TypeRow | undefined;
+  if (existing) {
+    const type = mapType(existing);
+    type.fields = listFieldsForType(existing.id);
+    return type;
+  }
+
+  const res = db
+    .prepare(
+      `INSERT INTO ticket_types (name, slug, description, active, sort_order)
+       VALUES (?, ?, ?, 1, 20)`
+    )
+    .run(
+      "Modificación",
+      MODIFICATION_TYPE_SLUG,
+      "Solicitud de modificación de vivienda."
+    );
+  const created = getTicketType(Number(res.lastInsertRowid));
+  if (!created) {
+    throw new Error("No se pudo crear el tipo de modificación.");
+  }
+  return created;
 }
 
 export function getTicketType(id: number): TicketType | null {

@@ -81,8 +81,12 @@ export function auditSettingsChanges(
     });
   }
 
-  if (before.inactivityFarewellMessage !== after.inactivityFarewellMessage) {
+  if (
+    before.inactivityFarewellMessage !== after.inactivityFarewellMessage ||
+    before.inactivityAutoCloseEnabled !== after.inactivityAutoCloseEnabled
+  ) {
     logAudit(userId, username, "settings.inactivity", "settings", 1, {
+      autoCloseEnabled: after.inactivityAutoCloseEnabled ? "Sí" : "No",
       messagePreview: truncatePreview(after.inactivityFarewellMessage, 160),
     });
   }

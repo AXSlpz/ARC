@@ -27,7 +27,21 @@ if (!WS_SECRET) {
   console.warn("[ws] ADVERTENCIA: WS_SECRET no configurado — /broadcast sin protección");
 }
 
-const clients = new Set<WebSocket>();
+type TaggedSocket = WebSocket & { portalUserId: number | null };
+
+const clients = new Set<TaggedSocket>();
+
+function clientMayReceive(client: TaggedSocket, body: string): boolean {
+  if (client.portalUserId == null) return true;
+  let parsed: { event?: string; data?: { portalUserId?: unknown } };
+  try {
+    parsed = JSON.parse(body) as { event?: string; data?: { portalUserId?: unknown } };
+  } catch {
+    return false;
+  }
+  if (parsed.event !== "ticket") return false;
+  return Number(parsed.data?.portalUserId) === client.portalUserId;
+}
 
 function isValidOrigin(origin: string | undefined): boolean {
   if (!APP_URL) return !isProd;
@@ -81,7 +95,7 @@ const server = http.createServer((req, res) => {
       }
       const body = Buffer.concat(chunks).toString("utf8");
       for (const client of clients) {
-        if (client.readyState === WebSocket.OPEN) {
+        if (client.readyState === WebSocket.OPEN && clientMayReceive(client, body)) {
           client.send(body);
         }
       }
@@ -113,13 +127,16 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
   const url = new URL(req.url ?? "/", `http://localhost`);
   const ticket = url.searchParams.get("ticket") ?? "";
 
-  if (!ticket || !consumeWsTicket(ticket)) {
+  const consumed = ticket ? consumeWsTicket(ticket) : null;
+  if (!consumed) {
     ws.close(4001, "Invalid ticket");
     return;
   }
 
-  clients.add(ws);
-  ws.on("close", () => clients.delete(ws));
+  const tagged = ws as TaggedSocket;
+  tagged.portalUserId = consumed.portalUserId;
+  clients.add(tagged);
+  tagged.on("close", () => clients.delete(tagged));
 });
 
 server.listen(PORT, HOST, () => {

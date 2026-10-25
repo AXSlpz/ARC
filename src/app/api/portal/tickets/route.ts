@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isPortalAuthError, requirePortalUser } from "@/lib/portal/auth";
 import { createTicket, listTicketsForUser } from "@/lib/portal/tickets";
 import { notifyTicketCreated } from "@/lib/notify/ticket-events";
+import { publishAdminNotification } from "@/lib/admin-notifications";
 import { broadcastTicketEvent } from "@/lib/ws-notify";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +57,14 @@ export async function POST(req: NextRequest) {
     console.error("[portal] notifyTicketCreated:", err)
   );
 
+  publishAdminNotification({
+    kind: "solicitud",
+    title: "Nueva solicitud",
+    body: `${auth.name} creó ${result.ticket.folio}`,
+    ticketId: result.ticket.id,
+    folio: result.ticket.folio,
+  });
+
   // Tiempo real: avisa al admin que hay una solicitud nueva.
   broadcastTicketEvent({
     ticketId: result.ticket.id,
@@ -63,6 +72,7 @@ export async function POST(req: NextRequest) {
     folio: result.ticket.folio,
     actor: "client",
     kind: "created",
+    category: "solicitud",
   });
 
   return NextResponse.json({ ticket: result.ticket }, { status: 201 });

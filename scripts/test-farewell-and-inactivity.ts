@@ -28,8 +28,9 @@ function testFarewellDetection() {
 
 function testFarewellIncludesSurvey() {
   const msg = buildFarewellWithSurveyResponse("Andre Lopez");
-  assert.ok(msg.includes(SURVEY_PROMPT));
-  assert.ok(/Andre|gusto|gracias|placer|alegra/i.test(msg));
+  assert.equal(msg.includes(SURVEY_PROMPT), false);
+  assert.equal(msg.includes("1 al 5"), false);
+  assert.ok(/ARC|reglamento/i.test(msg));
 }
 
 function testInactivityHasNoSurvey() {

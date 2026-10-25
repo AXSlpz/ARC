@@ -2,16 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { SendNoticeModal } from "@/components/tickets/SendNoticeModal";
-
-const FMT = new Intl.NumberFormat("es-MX", {
-  style: "currency",
-  currency: "MXN",
-});
-
-function fmtMoney(val: number | null): string {
-  if (val == null) return "—";
-  return FMT.format(val);
-}
+import { IneAdminPanel } from "@/components/admin/IneAdminPanel";
+import {
+  DetailField,
+  DetailPopup,
+  DetailSection,
+  detailBtnPress,
+} from "./DetailPopup";
 
 interface Residente {
   id: number;
@@ -19,21 +16,12 @@ interface Residente {
   condominio_prefijo?: string;
   num_vivienda: number | null;
   num_coto: string | number | null;
-  cf_property_id?: string | null;
   prototipo_id?: number | null;
   prototipo_name?: string | null;
   nombre: string;
   celular: number | null;
   email: string | null;
-  fecha_entrega: string | null;
   metros_cuadrados: number | null;
-  cuota_int: number | null;
-  cuota_ext: number | null;
-  cuota_completa: number | null;
-  cuota_int_pronpago: number | null;
-  cuota_ext_pronpago: number | null;
-  cuota_comp_pronpago: number | null;
-  servicio_luz: number | null;
   nombre_contacto1: string | null;
   celular_contacto1: number | null;
   parentesco_contacto1: string | null;
@@ -43,20 +31,9 @@ interface Residente {
   nombre_contacto3?: string | null;
   celular_contacto3?: number | null;
   parentesco_contacto3?: string | null;
-  mes_pago: string | null;
   nombre_expropietario: string | null;
   celular_expropietario: number | null;
   fecha_entrega_primer: string | null;
-  tag1_estatus?: "Activo" | "Inactivo" | null;
-  tag1_id?: number | null;
-  tag1_placa?: string | null;
-  tag1_modelo?: string | null;
-  tag1_color?: string | null;
-  tag2_estatus?: "Activo" | "Inactivo" | null;
-  tag2_id?: number | null;
-  tag2_placa?: string | null;
-  tag2_modelo?: string | null;
-  tag2_color?: string | null;
   ocupacion?: "Ocupado" | "Vacante";
   pendiente_asignacion?: number;
   active: number;
@@ -75,40 +52,25 @@ function isVacante(r: { ocupacion?: string; nombre: string }): boolean {
   return r.ocupacion === "Vacante" || r.nombre === "Vacante";
 }
 
-function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
-  return (
-    <div>
-      <p className="text-xs text-violet-400 font-medium">{label}</p>
-      <p className="text-sm text-gray-900 mt-0.5">
-        {value != null && value !== "" ? String(value) : "—"}
-      </p>
-    </div>
-  );
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <h4 className="mb-3 w-full border-b border-violet-200 pb-1.5 text-sm font-semibold tracking-wider text-violet-600 uppercase">
-        {title}
-      </h4>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-3">{children}</div>
-    </div>
-  );
-}
-
 function hasContact(
   nombre: string | null | undefined,
   celular: number | null | undefined,
   parentesco: string | null | undefined
 ): boolean {
   return !!(nombre || celular || parentesco);
+}
+
+function subtitleFor(r: Residente): string {
+  const unassigned =
+    !r.condominio_name ||
+    r.condominio_name.trim().toLowerCase() === "pendiente de asignacion";
+  if (r.pendiente_asignacion && unassigned) return "Pendiente De Asignacion";
+  const parts = [r.condominio_name];
+  if (r.num_vivienda != null) parts.push(`Viv. ${r.num_vivienda}`);
+  if (r.num_coto != null && String(r.num_coto).trim() !== "") {
+    parts.push(`Coto ${r.num_coto}`);
+  }
+  return parts.filter(Boolean).join(" · ");
 }
 
 export function ResidenteDetail({
@@ -131,54 +93,97 @@ export function ResidenteDetail({
       num_vivienda: r.num_vivienda,
       num_coto: r.num_coto,
     }),
-    [
-      r.id,
-      r.nombre,
-      r.celular,
-      r.email,
-      r.condominio_name,
-      r.num_vivienda,
-      r.num_coto,
-    ]
+    [r.id, r.nombre, r.celular, r.email, r.condominio_name, r.num_vivienda, r.num_coto]
   );
 
   return (
-    <div className="flex flex-col h-full bg-white border-l border-violet-100">
-      <div className="flex items-center justify-between bg-gradient-to-r from-violet-600 to-purple-600 px-5 py-4 shrink-0">
-        <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-white truncate">
-            {r.nombre}
-          </h3>
-          <p className="text-violet-200 text-sm truncate">
-            {r.condominio_name}
-            {r.num_vivienda != null && ` · Viv. ${r.num_vivienda}`}
-            {r.num_coto != null && ` · Coto ${r.num_coto}`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {vacante && r.active ? (
-            <span className="rounded-full bg-amber-500/20 text-amber-100 text-xs px-2 py-0.5 font-medium">
-              Vacante
-            </span>
-          ) : null}
-          {!r.active ? (
-            <span className="rounded-full bg-red-500/20 text-red-200 text-xs px-2 py-0.5 font-medium">
-              Baja
-            </span>
-          ) : null}
-          <button
-            onClick={onClose}
-            className="text-white/80 hover:text-white p-1"
-            aria-label="Cerrar detalle"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+    <>
+      <DetailPopup
+        title={r.nombre}
+        subtitle={subtitleFor(r)}
+        onClose={onClose}
+        headerExtra={
+          <>
+            {vacante && r.active ? (
+              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-100">
+                Vacante
+              </span>
+            ) : null}
+            {!r.active ? (
+              <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-200">
+                Baja
+              </span>
+            ) : null}
+          </>
+        }
+        footer={
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onEdit}
+                className={detailBtnPress(
+                  "rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                )}
+              >
+                {vacante && r.active ? "Asignar nuevo propietario" : "Editar"}
+              </button>
+              {onAddProperty ? (
+                <button
+                  type="button"
+                  onClick={onAddProperty}
+                  className={detailBtnPress(
+                    "rounded-lg border border-violet-200 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-50"
+                  )}
+                >
+                  Agregar otra propiedad
+                </button>
+              ) : null}
+              {r.active && !vacante ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowNoticeModal(true)}
+                    className={detailBtnPress(
+                      "rounded-lg border border-amber-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-amber-50"
+                    )}
+                  >
+                    Notificación
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onDeactivate}
+                    className={detailBtnPress(
+                      "rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                    )}
+                  >
+                    Marcar Vacante
+                  </button>
+                </>
+              ) : !r.active ? (
+                <button
+                  type="button"
+                  onClick={onReactivate}
+                  className={detailBtnPress(
+                    "rounded-lg border border-green-200 px-4 py-2 text-sm font-medium text-green-600 hover:bg-green-50"
+                  )}
+                >
+                  Reactivar
+                </button>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className={detailBtnPress(
+                "rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              Cerrar
+            </button>
+          </>
+        }
+      >
         {r.pendiente_asignacion ? (
           <div className="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
             <p className="font-semibold">Pendiente de asignación</p>
@@ -189,103 +194,71 @@ export function ResidenteDetail({
             </p>
           </div>
         ) : null}
-        <Section title="Datos Generales">
-          <Field label="Nombre" value={r.nombre} />
-          <Field label="Celular" value={r.celular} />
-          <Field label="Email" value={r.email} />
-          <Field
+
+        <DetailSection title="Datos Generales">
+          <DetailField label="Nombre" value={r.nombre} />
+          <DetailField label="Celular" value={r.celular} />
+          <DetailField label="Email" value={r.email} />
+          <DetailField
             label="Condominio"
             value={r.pendiente_asignacion ? "Sin asignar" : r.condominio_name}
           />
-        </Section>
+        </DetailSection>
 
-        <Section title="Vivienda">
-          <Field label="Num° Vivienda" value={r.num_vivienda} />
-          <Field label="Num° Coto" value={r.num_coto} />
-          <Field label="Prototipo" value={r.prototipo_name} />
-          <Field label="CF Property ID" value={r.cf_property_id} />
-          <Field
+        <DetailSection title="INE">
+          <div className="col-span-2">
+            <IneAdminPanel residenteId={r.id} />
+          </div>
+        </DetailSection>
+
+        <DetailSection title="Vivienda" columns={3}>
+          <DetailField label="Num° Vivienda" value={r.num_vivienda} />
+          <DetailField label="Num° Coto" value={r.num_coto} />
+          <DetailField label="Prototipo" value={r.prototipo_name} />
+          <DetailField
             label="m²"
             value={r.metros_cuadrados != null ? `${r.metros_cuadrados} m²` : null}
           />
-        </Section>
+        </DetailSection>
 
-        <Section title="Contacto 1">
-          <Field label="Nombre" value={r.nombre_contacto1} />
-          <Field label="Celular" value={r.celular_contacto1} />
-          <Field label="Parentesco" value={r.parentesco_contacto1} />
-        </Section>
-
-        {hasContact(r.nombre_contacto2, r.celular_contacto2, r.parentesco_contacto2) && (
-          <Section title="Contacto 2">
-            <Field label="Nombre" value={r.nombre_contacto2} />
-            <Field label="Celular" value={r.celular_contacto2} />
-            <Field label="Parentesco" value={r.parentesco_contacto2} />
-          </Section>
-        )}
-
-        {hasContact(r.nombre_contacto3, r.celular_contacto3, r.parentesco_contacto3) && (
-          <Section title="Contacto 3">
-            <Field label="Nombre" value={r.nombre_contacto3} />
-            <Field label="Celular" value={r.celular_contacto3} />
-            <Field label="Parentesco" value={r.parentesco_contacto3} />
-          </Section>
-        )}
-
-        <Section title="Ex-Propietario">
-          <Field label="Nombre" value={r.nombre_expropietario} />
-          <Field label="Celular" value={r.celular_expropietario} />
-          <Field label="Fecha Entrega 1er" value={r.fecha_entrega_primer} />
-        </Section>
-      </div>
-
-      <div className="border-t border-violet-100 px-5 py-3 flex flex-wrap items-center gap-2 shrink-0">
-        <button
-          onClick={onEdit}
-          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
-        >
-          {vacante && r.active ? "Asignar nuevo propietario" : "Editar"}
-        </button>
-        {onAddProperty && (
-          <button
-            type="button"
-            onClick={onAddProperty}
-            className="rounded-lg border border-violet-200 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-50"
-          >
-            Agregar otra propiedad
-          </button>
-        )}
-        {r.active && !vacante ? (
-          <>
-            <button
-              type="button"
-              onClick={() => setShowNoticeModal(true)}
-              className="rounded-lg border border-amber-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-amber-50"
-            >
-              Notificación
-            </button>
-            <button
-              onClick={onDeactivate}
-              className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-            >
-              Marcar Vacante
-            </button>
-          </>
-        ) : !r.active ? (
-          <button
-            onClick={onReactivate}
-            className="rounded-lg border border-green-200 px-4 py-2 text-sm font-medium text-green-600 hover:bg-green-50"
-          >
-            Reactivar
-          </button>
+        {hasContact(r.nombre_contacto1, r.celular_contacto1, r.parentesco_contacto1) ? (
+          <DetailSection title="Contacto 1" columns={3}>
+            <DetailField label="Nombre" value={r.nombre_contacto1} />
+            <DetailField label="Celular" value={r.celular_contacto1} />
+            <DetailField label="Parentesco" value={r.parentesco_contacto1} />
+          </DetailSection>
         ) : null}
-      </div>
+
+        {hasContact(r.nombre_contacto2, r.celular_contacto2, r.parentesco_contacto2) ? (
+          <DetailSection title="Contacto 2" columns={3}>
+            <DetailField label="Nombre" value={r.nombre_contacto2} />
+            <DetailField label="Celular" value={r.celular_contacto2} />
+            <DetailField label="Parentesco" value={r.parentesco_contacto2} />
+          </DetailSection>
+        ) : null}
+
+        {hasContact(r.nombre_contacto3, r.celular_contacto3, r.parentesco_contacto3) ? (
+          <DetailSection title="Contacto 3" columns={3}>
+            <DetailField label="Nombre" value={r.nombre_contacto3} />
+            <DetailField label="Celular" value={r.celular_contacto3} />
+            <DetailField label="Parentesco" value={r.parentesco_contacto3} />
+          </DetailSection>
+        ) : null}
+
+        {r.nombre_expropietario || r.celular_expropietario || r.fecha_entrega_primer ? (
+          <DetailSection title="Ex-Propietario" columns={3}>
+            <DetailField label="Nombre" value={r.nombre_expropietario} />
+            <DetailField label="Celular" value={r.celular_expropietario} />
+            <DetailField label="Fecha Entrega 1er" value={r.fecha_entrega_primer} />
+          </DetailSection>
+        ) : null}
+      </DetailPopup>
 
       <SendNoticeModal
         open={showNoticeModal}
         onClose={() => setShowNoticeModal(false)}
         preselectedResidente={preselectedResidente}
       />
-    </div>
+    </>
   );
 }

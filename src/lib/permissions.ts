@@ -8,7 +8,19 @@ export type Permission =
   | "manage_users"
   | "advanced_admin"
   | "residentes"
-  | "all_lines";
+  | "all_lines"
+  | "crm_prospectos"
+  | "crm_catalog"
+  | "crm_quotes"
+  | "crm_pipelines"
+  | "crm_write";
+
+const CRM_READ: Permission[] = [
+  "crm_prospectos",
+  "crm_catalog",
+  "crm_quotes",
+  "crm_pipelines",
+];
 
 const ROLE_PERMISSIONS: Record<UserRole, ReadonlySet<Permission>> = {
   super_admin: new Set([
@@ -20,6 +32,8 @@ const ROLE_PERMISSIONS: Record<UserRole, ReadonlySet<Permission>> = {
     "advanced_admin",
     "residentes",
     "all_lines",
+    ...CRM_READ,
+    "crm_write",
   ]),
   admin: new Set([
     "assign_chat_to_others",
@@ -29,8 +43,10 @@ const ROLE_PERMISSIONS: Record<UserRole, ReadonlySet<Permission>> = {
     "advanced_admin",
     "residentes",
     "all_lines",
+    ...CRM_READ,
+    "crm_write",
   ]),
-  atencion: new Set(["residentes"]),
+  atencion: new Set(["residentes", ...CRM_READ]),
 };
 
 export function normalizeUserRole(role: string | null | undefined): UserRole {

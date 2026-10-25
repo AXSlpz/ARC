@@ -1,5 +1,5 @@
 /**
- * Smoke: despedida → solo encuesta; patrones básicos.
+ * Smoke: despedida sin encuesta.
  * npx tsx scripts/test-farewell-survey.ts
  */
 import assert from "node:assert/strict";
@@ -19,7 +19,8 @@ assert.equal(isFarewellMessage("gracias por el horario de la alberca?", true), f
 assert.equal(isFarewellMessage("gracias", false), false);
 
 const reply = buildFarewellWithSurveyResponse("Ana", "Ana");
-assert.equal(reply, SURVEY_PROMPT);
-assert.ok(!/gusto|placer|alegra/i.test(reply));
+assert.notEqual(reply, SURVEY_PROMPT);
+assert.equal(reply.includes("1 al 5"), false);
+assert.ok(/ARC|reglamento/i.test(reply));
 
-console.log("OK: farewell → solo encuesta");
+console.log("OK: farewell sin encuesta");

@@ -4,10 +4,6 @@ import { useState, useEffect, useMemo } from "react";
 import { CondominioSelector } from "./CondominioSelector";
 import { FechaInput } from "./FechaInput";
 import { PrototipoSelect } from "./PrototipoSelect";
-import {
-  TAG_VEHICULAR_ESTATUS,
-  VEHICULO_COLORES,
-} from "@/lib/vehiculo-tags";
 
 interface Condominio {
   id: number;
@@ -21,20 +17,11 @@ interface ResidenteData {
   condominio_id: number | null;
   num_vivienda: number | null;
   num_coto: string | null;
-  cf_property_id: string | null;
   prototipo_id: number | null;
   nombre: string;
   celular: number | null;
   email: string | null;
-  fecha_entrega: string | null;
   metros_cuadrados: number | null;
-  cuota_int: number | null;
-  cuota_ext: number | null;
-  cuota_completa: number | null;
-  cuota_int_pronpago: number | null;
-  cuota_ext_pronpago: number | null;
-  cuota_comp_pronpago: number | null;
-  servicio_luz: number | null;
   nombre_contacto1: string | null;
   celular_contacto1: number | null;
   parentesco_contacto1: string | null;
@@ -44,40 +31,20 @@ interface ResidenteData {
   nombre_contacto3: string | null;
   celular_contacto3: number | null;
   parentesco_contacto3: string | null;
-  mes_pago: string | null;
   nombre_expropietario: string | null;
   celular_expropietario: number | null;
   fecha_entrega_primer: string | null;
-  tag1_estatus: "Activo" | "Inactivo" | null;
-  tag1_id: number | null;
-  tag1_placa: string | null;
-  tag1_modelo: string | null;
-  tag1_color: string | null;
-  tag2_estatus: "Activo" | "Inactivo" | null;
-  tag2_id: number | null;
-  tag2_placa: string | null;
-  tag2_modelo: string | null;
-  tag2_color: string | null;
 }
 
 const EMPTY: ResidenteData = {
   condominio_id: null,
   num_vivienda: null,
   num_coto: null,
-  cf_property_id: null,
   prototipo_id: null,
   nombre: "",
   celular: null,
   email: null,
-  fecha_entrega: null,
   metros_cuadrados: null,
-  cuota_int: null,
-  cuota_ext: null,
-  cuota_completa: null,
-  cuota_int_pronpago: null,
-  cuota_ext_pronpago: null,
-  cuota_comp_pronpago: null,
-  servicio_luz: null,
   nombre_contacto1: null,
   celular_contacto1: null,
   parentesco_contacto1: null,
@@ -87,31 +54,10 @@ const EMPTY: ResidenteData = {
   nombre_contacto3: null,
   celular_contacto3: null,
   parentesco_contacto3: null,
-  mes_pago: null,
   nombre_expropietario: null,
   celular_expropietario: null,
   fecha_entrega_primer: null,
-  tag1_estatus: null,
-  tag1_id: null,
-  tag1_placa: null,
-  tag1_modelo: null,
-  tag1_color: null,
-  tag2_estatus: null,
-  tag2_id: null,
-  tag2_placa: null,
-  tag2_modelo: null,
-  tag2_color: null,
 };
-
-const MESES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
-
-const FMT = new Intl.NumberFormat("es-MX", {
-  style: "currency",
-  currency: "MXN",
-});
 
 interface ResidenteFormProps {
   initial?: ResidenteData | null;
@@ -148,6 +94,12 @@ function NumberInput({
   integer?: boolean;
   readOnly?: boolean;
 }) {
+  const inputClass = `w-full rounded-lg border py-2 text-sm text-gray-900 focus:outline-none ${
+    readOnly
+      ? "border-violet-100 bg-violet-50 text-violet-800 cursor-default"
+      : "border-gray-200 bg-white focus:border-violet-400"
+  }`;
+
   return (
     <div>
       {label && (
@@ -162,7 +114,8 @@ function NumberInput({
           </span>
         )}
         <input
-          type="number"
+          type={integer ? "number" : "text"}
+          inputMode={integer ? "numeric" : "decimal"}
           step={integer ? "1" : "0.01"}
           value={value ?? ""}
           readOnly={readOnly}
@@ -176,14 +129,10 @@ function NumberInput({
             }
           }}
           placeholder={placeholder}
-          className={`w-full rounded-lg border py-2 text-sm text-gray-900 focus:outline-none ${
-            readOnly
-              ? "border-violet-100 bg-violet-50 text-violet-800 cursor-default"
-              : "border-gray-200 bg-white focus:border-violet-400"
-          } ${prefix ? "pl-7 pr-3" : "px-3"} ${suffix ? "pr-10" : ""}`}
+          className={`${inputClass} ${prefix ? "pl-7 pr-3" : "px-3"} ${suffix ? "pr-10" : ""}`}
         />
         {suffix && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
             {suffix}
           </span>
         )}
@@ -272,16 +221,6 @@ export function ResidenteForm({
     return `${selectedCondo.prefijo}-${data.num_vivienda}`;
   }, [selectedCondo, data.num_vivienda]);
 
-  const cuotaCompleta = useMemo(() => {
-    if (data.cuota_int == null && data.cuota_ext == null) return null;
-    return (data.cuota_int ?? 0) + (data.cuota_ext ?? 0);
-  }, [data.cuota_int, data.cuota_ext]);
-
-  const cuotaCompPronpago = useMemo(() => {
-    if (data.cuota_int_pronpago == null && data.cuota_ext_pronpago == null) return null;
-    return (data.cuota_int_pronpago ?? 0) + (data.cuota_ext_pronpago ?? 0);
-  }, [data.cuota_int_pronpago, data.cuota_ext_pronpago]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!data.condominio_id) {
@@ -299,8 +238,6 @@ export function ResidenteForm({
       await onSave({
         ...data,
         num_coto: numCoto,
-        cuota_completa: cuotaCompleta,
-        cuota_comp_pronpago: cuotaCompPronpago,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al guardar");
@@ -433,195 +370,12 @@ export function ResidenteForm({
                 value={data.prototipo_id}
                 onChange={(id) => set("prototipo_id", id)}
               />
-              <div className="col-span-2 md:col-span-2">
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  CF Property ID
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={data.cf_property_id ?? ""}
-                  onChange={(e) => {
-                    const raw = e.target.value.trim();
-                    set("cf_property_id", raw ? raw.replace(/\D/g, "") || null : null);
-                  }}
-                  placeholder="Ej. 1782335 (opcional)"
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-violet-400 focus:outline-none"
-                />
-                <p className="mt-1 text-[10px] text-gray-400">
-                  ID de propiedad en Comunidad Feliz. Si lo llenas, el saldo usa este vínculo exacto.
-                </p>
-              </div>
               <NumberInput
                 label="m²"
                 value={data.metros_cuadrados}
                 onChange={(v) => set("metros_cuadrados", v)}
                 suffix="m²"
               />
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="text-base font-semibold text-violet-700 border-b border-violet-200 pb-1.5 mb-3 w-full block">
-              TAG Vehicular
-            </legend>
-            <div className="space-y-5">
-              {([1, 2] as const).map((n) => {
-                const estatusKey = `tag${n}_estatus` as const;
-                const idKey = `tag${n}_id` as const;
-                const placaKey = `tag${n}_placa` as const;
-                const modeloKey = `tag${n}_modelo` as const;
-                const colorKey = `tag${n}_color` as const;
-                return (
-                  <div key={n}>
-                    <p className="mb-2 text-xs font-medium text-violet-500">
-                      TAG {n}
-                    </p>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">
-                          Estatus TAG
-                        </label>
-                        <select
-                          value={data[estatusKey] ?? ""}
-                          onChange={(e) =>
-                            set(
-                              estatusKey,
-                              (e.target.value || null) as
-                                | "Activo"
-                                | "Inactivo"
-                                | null
-                            )
-                          }
-                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-violet-400 focus:outline-none"
-                        >
-                          <option value="">Selecciona...</option>
-                          {TAG_VEHICULAR_ESTATUS.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <NumberInput
-                        label="TAG ID"
-                        value={data[idKey]}
-                        onChange={(v) => set(idKey, v)}
-                        integer
-                        placeholder="Solo números"
-                      />
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">
-                          Placa
-                        </label>
-                        <input
-                          type="text"
-                          value={data[placaKey] ?? ""}
-                          onChange={(e) =>
-                            set(placaKey, e.target.value || null)
-                          }
-                          placeholder="ABC-123-D"
-                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm uppercase text-gray-900 focus:border-violet-400 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">
-                          Modelo
-                        </label>
-                        <input
-                          type="text"
-                          value={data[modeloKey] ?? ""}
-                          onChange={(e) =>
-                            set(modeloKey, e.target.value || null)
-                          }
-                          placeholder="Ej. Toyota Corolla"
-                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-violet-400 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">
-                          Color
-                        </label>
-                        <select
-                          value={data[colorKey] ?? ""}
-                          onChange={(e) =>
-                            set(colorKey, e.target.value || null)
-                          }
-                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-violet-400 focus:outline-none"
-                        >
-                          <option value="">Selecciona...</option>
-                          {VEHICULO_COLORES.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="text-base font-semibold text-violet-700 border-b border-violet-200 pb-1.5 mb-3 w-full block">
-              Cuotas (MXN)
-            </legend>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <NumberInput label="Cuota Int" value={data.cuota_int} onChange={(v) => set("cuota_int", v)} prefix="$" />
-              <NumberInput label="Cuota Ext" value={data.cuota_ext} onChange={(v) => set("cuota_ext", v)} prefix="$" />
-              <div>
-                <NumberInput label="Cuota Completa" value={cuotaCompleta} prefix="$" readOnly />
-                <p className="mt-1 text-[10px] text-gray-400">
-                  {cuotaCompleta != null ? FMT.format(cuotaCompleta) : "Int + Ext"}
-                </p>
-              </div>
-              <NumberInput label="Cuota Int (PronPago)" value={data.cuota_int_pronpago} onChange={(v) => set("cuota_int_pronpago", v)} prefix="$" />
-              <NumberInput label="Cuota Ext (PronPago)" value={data.cuota_ext_pronpago} onChange={(v) => set("cuota_ext_pronpago", v)} prefix="$" />
-              <div>
-                <NumberInput label="Cuota Comp (PronPago)" value={cuotaCompPronpago} prefix="$" readOnly />
-                <p className="mt-1 text-[10px] text-gray-400">
-                  Int PronPago + Ext PronPago
-                </p>
-              </div>
-              <NumberInput
-                label="Servicio Luz"
-                value={data.servicio_luz}
-                onChange={(v) => set("servicio_luz", v)}
-                prefix="$"
-              />
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="text-base font-semibold text-violet-700 border-b border-violet-200 pb-1.5 mb-3 w-full block">
-              Fechas y Pagos
-            </legend>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FechaInput
-                label="Fecha Entrega"
-                value={data.fecha_entrega}
-                onChange={(v) => set("fecha_entrega", v)}
-              />
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Mes de Pago
-                </label>
-                <select
-                  value={data.mes_pago ?? ""}
-                  onChange={(e) => set("mes_pago", e.target.value || null)}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-violet-400 focus:outline-none"
-                >
-                  <option value="">Selecciona...</option>
-                  {MESES.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
           </fieldset>
 

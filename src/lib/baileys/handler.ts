@@ -10,8 +10,6 @@ import {
   queueHumanHandoff,
 } from "../db.js";
 import {
-  searchFaq,
-  recordFaqHit,
   getUrgencyKeywords,
   getWelcomeMessage,
   isMenuEnabled,
@@ -22,26 +20,18 @@ import {
   setConversationPriority,
   setHandoffSummary,
   setAwaitingSurvey,
-  markInactivityFarewellSent,
-  saveSurvey,
   insertMessageWithMedia,
   addConversationTag,
   listTags,
   reopenConversation,
-  getInactiveConversations,
-  getExpiredSurveyConversations,
-  closeConversation,
   getConversationTags,
   setAwaitingTopicConfirm,
   clearAwaitingTopicConfirm,
   updateConversationContact,
 } from "../db-features.js";
-import { buildInactivityFarewellMessage } from "../inactivity.js";
 import {
   buildFarewellWithSurveyResponse,
-  buildSurveyTimeoutCloseMessage,
   isFarewellMessage,
-  SURVEY_PROMPT,
 } from "../conversation-farewell.js";
 import { getAdminSettings } from "../admin-settings.js";
 import { generateReply } from "../openrouter.js";
@@ -50,25 +40,6 @@ import {
   PROMPT_GUARD_REJECTION,
 } from "../prompt-guard.js";
 import { assessReglamentoMatch } from "../reglamentos.js";
-import {
-  buildServiceScheduleContext,
-  formatDirectServiceScheduleReply,
-} from "../service-schedules.js";
-import {
-  buildTagVehicularContext,
-  formatDirectTagVehicularReply,
-  looksLikeTagVehicularQuestion,
-} from "../residente-tag-reply.js";
-import {
-  ACCOUNT_DEGRADED_REPLY,
-  buildAccountContext,
-  formatDirectAccountReply,
-  looksLikeAccountQuestion,
-} from "../residente-account-reply.js";
-import {
-  getCachedAccountSummary,
-  refreshAccountForResidente,
-} from "../comunidad-feliz-accounts.js";
 import {
   buildEnrichedQuery,
   looksLikeQuestion,
@@ -90,7 +61,6 @@ import {
   extractFirstName as extractDisplayFirstName,
   isGreetingOnly,
   isHelpSeekingMessage,
-  personalizeFaqAnswer,
   prependOpenerIfNeeded,
   shouldAskWhatTheyNeed,
   shouldGreetUserAgain,
@@ -106,6 +76,8 @@ import { extractIncomingImageText, IncomingMediaError } from "../incoming-media.
 import {
   BLOCKED_MEDIA_MESSAGES,
   type BlockedMediaKind,
+  exceedsPortalFileLimit,
+  FILE_TOO_LARGE_MESSAGE,
   isBlockedClientDocument,
   isPdfDocument,
 } from "../incoming-media-security.js";
@@ -318,31 +290,6 @@ function isIdentityQuestion(text: string): boolean {
   return patterns.some((re) => re.test(t));
 }
 
-async function sendScheduledBotReply(
-  sock: WaTransport,
-  jid: string,
-  conversationId: number,
-  reply: string
-): Promise<void> {
-  insertMessage(conversationId, "assistant", reply);
-  await sendHumanLikeText(sock, jid, reply);
-}
-
-function hasRecentAssistantMessage(
-  conversationId: number,
-  content: string,
-  withinSeconds = 120
-): boolean {
-  const now = Math.floor(Date.now() / 1000);
-  const normalized = content.trim();
-
-  return getRecentHistory(conversationId, 20).some((message) => {
-    if (message.role !== "assistant") return false;
-    if (message.content.trim() !== normalized) return false;
-    return now - message.created_at <= withinSeconds;
-  });
-}
-
 async function transferToHuman(
   sock: WaTransport,
   remoteJid: string,
@@ -412,6 +359,13 @@ async function resolveUserContent(
 
   const document = msg.message?.documentMessage;
   if (document) {
+    if (exceedsPortalFileLimit(document.fileLength)) {
+      return {
+        kind: "blocked",
+        logLabel: "too-large",
+        reply: FILE_TOO_LARGE_MESSAGE,
+      };
+    }
     const mime = document.mimetype ?? "";
     const fileName = document.fileName ?? "";
 
@@ -433,6 +387,13 @@ async function resolveUserContent(
         return { kind: "image", text: imageText, mediaPath: filePath };
       } catch (err) {
         botError("Imagen-documento rechazada", err);
+        if (err instanceof IncomingMediaError && err.code === "too_large") {
+          return {
+            kind: "blocked",
+            logLabel: "too-large",
+            reply: FILE_TOO_LARGE_MESSAGE,
+          };
+        }
         return {
           kind: "blocked",
           logLabel: "invalid-image",
@@ -463,6 +424,13 @@ async function resolveUserContent(
   }
 
   if (msg.message?.imageMessage) {
+    if (exceedsPortalFileLimit(msg.message.imageMessage.fileLength)) {
+      return {
+        kind: "blocked",
+        logLabel: "too-large",
+        reply: FILE_TOO_LARGE_MESSAGE,
+      };
+    }
     try {
       const { text: imageText, filePath } = await extractIncomingImageText(
         sock,
@@ -471,6 +439,13 @@ async function resolveUserContent(
       );
       return { kind: "image", text: imageText, mediaPath: filePath };
     } catch (err) {
+      if (err instanceof IncomingMediaError && err.code === "too_large") {
+        return {
+          kind: "blocked",
+          logLabel: "too-large",
+          reply: FILE_TOO_LARGE_MESSAGE,
+        };
+      }
       if (err instanceof IncomingMediaError) {
         botError(`Imagen rechazada (${err.code})`, err);
       } else {
@@ -485,11 +460,6 @@ async function resolveUserContent(
   }
 
   return null;
-}
-
-function parseSurveyRating(text: string): number | null {
-  const m = text.trim().match(/^[1-5]$/);
-  return m ? parseInt(m[0], 10) : null;
 }
 
 function getCombinedText(payload: PendingReplyPayload): string {
@@ -525,7 +495,6 @@ function shouldTreatAsNewQuestion(
   category?: string | null
 ): boolean {
   if (looksLikeQuestion(text)) return true;
-  if (searchFaq(text)) return true;
 
   const condo = resolveConversationCondominio(conversationId);
   if (!condo) return false;
@@ -544,18 +513,7 @@ function shouldTreatAsNewQuestion(
   if (assessReglamentoMatch(searchQuery, condo.condominioId).level !== "none") {
     return true;
   }
-  if (buildServiceScheduleContext(condo.condominioId, searchQuery)) {
-    return true;
-  }
-  const condoFull = getCondominio(condo.condominioId);
-  if (
-    condoFull?.estados_cuenta &&
-    condoFull.cf_community_id &&
-    looksLikeAccountQuestion(text)
-  ) {
-    return true;
-  }
-  return looksLikeTagVehicularQuestion(text);
+  return false;
 }
 
 async function answerWithKnowledge(
@@ -601,13 +559,6 @@ async function answerWithKnowledge(
     return;
   }
 
-  const residente = resolveConversationResidente(conversationId);
-  let accountContext = "";
-  if (residente && looksLikeAccountQuestion(searchQuery)) {
-    const cached = getCachedAccountSummary(residente.id);
-    accountContext = buildAccountContext(cached, searchQuery);
-  }
-
   await setComposing(sock, remoteJid, true);
   const { reply, indexedSources } = await generateReply(history, {
     searchQuery,
@@ -615,10 +566,6 @@ async function answerWithKnowledge(
     condominioName: condo.condominioName,
     category: convo.category,
     tags,
-    residenteTagContext: residente
-      ? buildTagVehicularContext(residente, searchQuery)
-      : "",
-    accountContext,
   });
 
   if (isNoAnswerReply(reply)) {
@@ -868,7 +815,7 @@ async function handleIdentityVerification(params: {
       sock,
       remoteJid,
       conversation.id,
-      "Soy un asistente que puede ayudarte a resolver preguntas y dudas sobre el condominio.",
+      "Soy el asistente de ARC. Te ayudo con el reglamento de construcción y con los documentos de tu condominio.",
       pushName,
       phone,
       { skipPersonalization: true }
@@ -1261,21 +1208,20 @@ async function processPendingReply(payload: PendingReplyPayload): Promise<void> 
   }
 
   if (fresh.awaiting_survey) {
-    const rating = parseSurveyRating(lastText);
-    if (rating) {
-      saveSurvey(fresh.id, rating);
-      await setComposing(sock, remoteJid, false);
+    setAwaitingSurvey(fresh.id, false);
+    if (/^\s*[1-5]\s*$/.test(lastText)) {
+      await sendBotReply(
+        sock,
+        remoteJid,
+        fresh.id,
+        "Ya no pedimos una calificación. Si tienes una duda de ARC o del reglamento de construcción, escríbela.",
+        pushName,
+        phone,
+        { skipPersonalization: true }
+      );
       return;
     }
-    await sendBotReply(
-      sock,
-      remoteJid,
-      fresh.id,
-      "Por favor responde solo con un número del 1 al 5.",
-      pushName,
-      phone
-    );
-    return;
+    fresh = getConversationById(conversationId) ?? fresh;
   }
 
   const urgencyKeywords = getUrgencyKeywords();
@@ -1396,7 +1342,7 @@ async function processPendingReply(payload: PendingReplyPayload): Promise<void> 
       sock,
       remoteJid,
       fresh.id,
-      "Soy un asistente que puede ayudarte a resolver preguntas y dudas sobre el condominio.",
+      "Soy el asistente de ARC. Te ayudo con el reglamento de construcción y con los documentos de tu condominio.",
       pushName,
       phone,
       { skipPersonalization: true }
@@ -1409,12 +1355,11 @@ async function processPendingReply(payload: PendingReplyPayload): Promise<void> 
       sock,
       remoteJid,
       fresh.id,
-      buildFarewellWithSurveyResponse(fresh.name, pushName),
+      buildFarewellWithSurveyResponse(),
       pushName,
       phone,
       { skipPersonalization: true }
     );
-    setAwaitingSurvey(fresh.id, true);
     return;
   }
 
@@ -1461,26 +1406,6 @@ async function processPendingReply(payload: PendingReplyPayload): Promise<void> 
     return;
   }
 
-  const faqHit = searchFaq(text);
-  if (faqHit) {
-    recordFaqHit(faqHit.id, fresh.id);
-    applyCategoryFromIndexedAnswer(fresh.id, "faq");
-    await sendBotReply(
-      sock,
-      remoteJid,
-      fresh.id,
-      personalizeFaqAnswer(faqHit.answer, {
-        displayName: fresh.name,
-        pushName,
-        shouldGreet: shouldIncludePersonalizedGreeting(fresh.id),
-      }),
-      pushName,
-      phone,
-      { skipPersonalization: true }
-    );
-    return;
-  }
-
   const tags = getConversationTags(fresh.id);
   const history = getRecentHistory(fresh.id, 20);
   const recentUserMessages = history
@@ -1500,126 +1425,15 @@ async function processPendingReply(payload: PendingReplyPayload): Promise<void> 
     return;
   }
 
-  const residente = resolveConversationResidente(fresh.id);
-  if (residente) {
-    const tagReply = formatDirectTagVehicularReply(residente, text);
-    if (tagReply) {
-      applyCategoryFromIndexedAnswer(fresh.id, "tag");
-      await sendBotReply(
-        sock,
-        remoteJid,
-        fresh.id,
-        tagReply,
-        pushName,
-        phone
-      );
-      return;
-    }
-
-    if (looksLikeAccountQuestion(text)) {
-      const condoFull = getCondominio(residente.condominio_id);
-      if (condoFull?.estados_cuenta && condoFull.cf_community_id) {
-        try {
-          let snapshot = getCachedAccountSummary(residente.id);
-          if (!snapshot) {
-            snapshot = await refreshAccountForResidente(residente);
-          }
-          if (snapshot) {
-            applyCategoryFromIndexedAnswer(fresh.id, "cuenta");
-            await sendBotReply(
-              sock,
-              remoteJid,
-              fresh.id,
-              formatDirectAccountReply(
-                snapshot,
-                residente.num_coto ??
-                  (residente.num_vivienda != null
-                    ? String(residente.num_vivienda)
-                    : null)
-              ),
-              pushName,
-              phone
-            );
-            return;
-          }
-          console.error(
-            `[comunidad-feliz] Sin snapshot para residente ${residente.id}`
-          );
-          applyCategoryFromIndexedAnswer(fresh.id, "cuenta");
-          await sendBotReply(
-            sock,
-            remoteJid,
-            fresh.id,
-            ACCOUNT_DEGRADED_REPLY,
-            pushName,
-            phone
-          );
-          return;
-        } catch (err) {
-          console.error("[comunidad-feliz] Error consultando cuenta:", err);
-          applyCategoryFromIndexedAnswer(fresh.id, "cuenta");
-          await sendBotReply(
-            sock,
-            remoteJid,
-            fresh.id,
-            ACCOUNT_DEGRADED_REPLY,
-            pushName,
-            phone
-          );
-          return;
-        }
-      }
-    }
-  }
-
-  const scheduleReply = formatDirectServiceScheduleReply(
-    condo.condominioId,
-    condo.condominioName,
-    text
-  );
-  if (scheduleReply) {
-    applyCategoryFromIndexedAnswer(fresh.id, "servicio");
-    await sendBotReply(
-      sock,
-      remoteJid,
-      fresh.id,
-      scheduleReply,
-      pushName,
-      phone
-    );
-    return;
-  }
-
   const assessment = assessReglamentoMatch(searchQuery, condo.condominioId);
-  const hasScheduleContext = Boolean(
-    buildServiceScheduleContext(condo.condominioId, searchQuery)
-  );
-  const hasTagContext = Boolean(
-    residente && buildTagVehicularContext(residente, searchQuery)
-  );
-  const hasAccountContext = Boolean(
-    residente &&
-      looksLikeAccountQuestion(searchQuery) &&
-      getCachedAccountSummary(residente.id)
-  );
 
-  if (
-    assessment.level === "none" &&
-    !hasScheduleContext &&
-    !hasTagContext &&
-    !hasAccountContext
-  ) {
+  if (assessment.level === "none") {
     await sendBotReply(sock, remoteJid, fresh.id, HANDOFF_OFFER, pushName, phone);
     setAwaitingHandoff(fresh.id, true);
     return;
   }
 
-  if (
-    assessment.level === "related" &&
-    !hasScheduleContext &&
-    !hasTagContext &&
-    !hasAccountContext
-  ) {
+  if (assessment.level === "related") {
     const mainTopic = assessment.topics[0] ?? "este tema";
     setAwaitingTopicConfirm(fresh.id, mainTopic);
     await sendBotReply(
@@ -1743,73 +1557,17 @@ async function handleMessage(
 }
 
 export async function processInactiveConversations(): Promise<void> {
-  const inactive = getInactiveConversations();
-  if (inactive.length === 0) return;
-
-  const farewell = buildInactivityFarewellMessage(
-    getAdminSettings().inactivityFarewellMessage
-  );
-
-  for (const conv of inactive) {
-    const transport = getTransport(conv.line_id);
-    if (!transport) continue;
-
-    try {
-      const jid = conv.phone.includes("@")
-        ? conv.phone
-        : `${conv.phone}@s.whatsapp.net`;
-      await sendScheduledBotReply(transport, jid, conv.id, farewell);
-      markInactivityFarewellSent(conv.id);
-      closeConversation(conv.id, "inactivity");
-      botLog(
-        `Conversación ${conv.id} (línea ${conv.line_id}): cierre automático por inactividad (una sola vez)`
-      );
-    } catch (err) {
-      botError(`Error cerrando conversación ${conv.id}`, err);
-    }
-  }
-  broadcastDashboard("conversations");
+  return;
 }
 
 export async function processExpiredSurveyConversations(): Promise<void> {
-  const expired = getExpiredSurveyConversations();
-  if (expired.length === 0) return;
-
-  for (const conv of expired) {
-    const transport = getTransport(conv.line_id);
-    if (!transport) continue;
-
-    try {
-      const jid = conv.phone.includes("@")
-        ? conv.phone
-        : `${conv.phone}@s.whatsapp.net`;
-      const closeMessage = buildSurveyTimeoutCloseMessage();
-      await sendScheduledBotReply(transport, jid, conv.id, closeMessage);
-      closeConversation(conv.id, "inactivity");
-      botLog(
-        `Conversación ${conv.id} (línea ${conv.line_id}) cerrada sin respuesta a encuesta (10 min)`
-      );
-    } catch (err) {
-      botError(`Error cerrando encuesta expirada ${conv.id}`, err);
-    }
-  }
-  broadcastDashboard("conversations");
+  return;
 }
 
 export async function sendSurveyToConversation(
-  sock: WaTransport,
-  conversationId: number,
-  phone: string
+  _sock: WaTransport,
+  _conversationId: number,
+  _phone: string
 ): Promise<void> {
-  setAwaitingSurvey(conversationId, true);
-
-  if (hasRecentAssistantMessage(conversationId, SURVEY_PROMPT)) {
-    botLog(
-      `Encuesta omitida para conversación ${conversationId}: ya enviada recientemente`
-    );
-    return;
-  }
-
-  const jid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
-  await sendScheduledBotReply(sock, jid, conversationId, SURVEY_PROMPT);
+  return;
 }

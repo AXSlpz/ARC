@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function PortalAccessPage() {
   const user = await getPortalUser();
   if (user) {
-    redirect("/portal/tickets");
+    redirect("/portal/inicio");
   }
-  return <PortalAccessClient />;
+  return <PortalAccessClient mode="login" />;
 }

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "node:path";
-import fs from "node:fs";
 import { isAuthError, requireAuth } from "@/lib/auth";
 import { getConversationById, canUserAccessConversation } from "@/lib/db";
-import { clearHandoffSummary, setAwaitingSurvey } from "@/lib/db-features";
+import { clearHandoffSummary, closeConversation } from "@/lib/db-features";
 import { conversationAuditDetails, logAudit } from "@/lib/audit";
 
 interface Ctx {
@@ -26,32 +24,19 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: "No encontrada" }, { status: 404 });
   }
 
-  if (convo.awaiting_survey) {
-    return NextResponse.json({
-      ok: true,
-      message: "La encuesta ya está pendiente para este cliente",
-    });
-  }
-
-  setAwaitingSurvey(id, true);
   clearHandoffSummary(id);
-
-  const dataDir = path.resolve(process.cwd(), "data");
-  fs.writeFileSync(
-    path.join(dataDir, `.survey-${id}`),
-    JSON.stringify({ phone: convo.phone, at: Date.now() })
-  );
+  closeConversation(id, "manual");
 
   logAudit(
     auth.id,
     auth.username,
-    "conversation.close_survey",
+    "conversation.close",
     "conversation",
     id,
     conversationAuditDetails(convo)
   );
   return NextResponse.json({
     ok: true,
-    message: "Encuesta enviada al cliente",
+    message: "Conversación cerrada",
   });
 }

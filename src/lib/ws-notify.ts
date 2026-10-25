@@ -9,7 +9,8 @@ export type DashboardEvent =
   | "connection"
   | "metrics"
   | "residentes"
-  | "ticket";
+  | "ticket"
+  | "crm";
 
 export function broadcastDashboard(
   event: DashboardEvent,
@@ -39,6 +40,7 @@ export interface TicketEventData extends Record<string, unknown> {
   actor: "client" | "admin";
   kind: "comment" | "status" | "attachment" | "letter" | "created";
   toStatus?: string;
+  category?: "solicitud" | "servicio";
 }
 
 export function broadcastTicketEvent(data: TicketEventData): void {

@@ -7,8 +7,9 @@ import { ResidentesList } from "./ResidentesList";
 import { ResidenteDetail } from "./ResidenteDetail";
 import { ResidenteForm } from "./ResidenteForm";
 import { CondominiosView } from "./CondominiosView";
+import { ProspectosView } from "@/components/crm/ProspectosView";
 
-type ResidentesTab = "residentes" | "condominios";
+type ResidentesTab = "residentes" | "condominios" | "prospectos";
 
 interface Condominio {
   id: number;
@@ -24,7 +25,6 @@ interface Residente {
   condominio_prefijo?: string;
   num_vivienda: number | null;
   num_coto: string | null;
-  cf_property_id: string | null;
   prototipo_id: number | null;
   prototipo_name?: string | null;
   nombre: string;
@@ -93,15 +93,18 @@ interface CreatePrefill {
 
 export function ResidentesView() {
   const [activeTab, setActiveTab] = useState<ResidentesTab>(() => {
-    if (typeof window === "undefined") return "residentes";
+    if (typeof window === "undefined") return "prospectos";
     try {
       const stored = sessionStorage.getItem("residentes-tab");
-      if (stored === "condominios") {
-        sessionStorage.removeItem("residentes-tab");
-        return "condominios";
+      if (
+        stored === "condominios" ||
+        stored === "prospectos" ||
+        stored === "residentes"
+      ) {
+        return stored;
       }
     } catch {}
-    return "residentes";
+    return "prospectos";
   });
   const [condominios, setCondominios] = useState<Condominio[]>([]);
   const [result, setResult] = useState<ListResult | null>(null);
@@ -175,6 +178,12 @@ export function ResidentesView() {
     if (selectedId != null) fetchDetail(selectedId);
     else setSelectedResidente(null);
   }, [selectedId, fetchDetail]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("residentes-tab", activeTab);
+    } catch {}
+  }, [activeTab]);
 
   const refresh = () => {
     fetchList();
@@ -273,6 +282,18 @@ export function ResidentesView() {
       <div className="shrink-0 px-4 sm:px-6 pt-4 pb-0">
         <div className="flex gap-1 border-b border-violet-200">
           <button
+            type="button"
+            onClick={() => setActiveTab("prospectos")}
+            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
+              activeTab === "prospectos"
+                ? "bg-white text-violet-800 border border-violet-200 border-b-white -mb-px"
+                : "text-gray-500 hover:text-violet-700 hover:bg-violet-50/50"
+            }`}
+          >
+            Prospectos
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("residentes")}
             className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
               activeTab === "residentes"
@@ -280,9 +301,10 @@ export function ResidentesView() {
                 : "text-gray-500 hover:text-violet-700 hover:bg-violet-50/50"
             }`}
           >
-            Residentes
+            Res / Clien
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("condominios")}
             className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
               activeTab === "condominios"
@@ -290,19 +312,21 @@ export function ResidentesView() {
                 : "text-gray-500 hover:text-violet-700 hover:bg-violet-50/50"
             }`}
           >
-            Condominios
+            Condominio
           </button>
         </div>
       </div>
 
       {activeTab === "condominios" ? (
         <CondominiosView />
+      ) : activeTab === "prospectos" ? (
+        <ProspectosView embedded />
       ) : (
         <div className="flex flex-col flex-1 min-h-0">
       {/* Top bar */}
       <div className="shrink-0 px-4 sm:px-6 pt-4 pb-3 space-y-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 lg:flex-nowrap">
-          <h2 className="text-xl font-bold text-violet-900 shrink-0">Residentes</h2>
+          <h2 className="text-xl font-bold text-violet-900 shrink-0">Clientes / Residentes</h2>
 
           <div className="order-3 w-full flex justify-center lg:order-none lg:flex-1 lg:w-auto lg:min-w-0">
             <ResidenteStatsBar stats={stats} compact />
@@ -361,13 +385,9 @@ export function ResidentesView() {
       </div>
 
       {/* Content area */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        <div
-          className={`${
-            selectedId != null ? "hidden md:flex" : "flex"
-          } flex-1 flex-col min-h-0 px-4 sm:px-6 pb-4`}
-        >
-          <div className="flex flex-col flex-1 min-h-0 bg-white rounded-2xl border border-violet-100 shadow-sm overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 sm:px-6">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-sm">
             <ResidentesList
               residentes={result?.data ?? []}
               selectedId={selectedId}
@@ -382,27 +402,18 @@ export function ResidentesView() {
             />
           </div>
         </div>
-
-        {/* Detail panel */}
-        {selectedId != null && selectedResidente && (
-          <div
-            className={`${
-              selectedId != null ? "flex" : "hidden md:flex"
-            } w-full md:w-[400px] lg:w-[450px] flex-col shrink-0`}
-          >
-            <div className="flex-1 overflow-hidden">
-              <ResidenteDetail
-                residente={selectedResidente}
-                onEdit={openEdit}
-                onDeactivate={handleDeactivate}
-                onReactivate={handleReactivate}
-                onAddProperty={() => openCreateFrom(selectedResidente)}
-                onClose={() => setSelectedId(null)}
-              />
-            </div>
-          </div>
-        )}
       </div>
+
+      {selectedId != null && selectedResidente ? (
+        <ResidenteDetail
+          residente={selectedResidente}
+          onEdit={openEdit}
+          onDeactivate={handleDeactivate}
+          onReactivate={handleReactivate}
+          onAddProperty={() => openCreateFrom(selectedResidente)}
+          onClose={() => setSelectedId(null)}
+        />
+      ) : null}
 
       {/* Form modal */}
       {formOpen && (

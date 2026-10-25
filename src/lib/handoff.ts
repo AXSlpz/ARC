@@ -1,5 +1,5 @@
 export const HANDOFF_OFFER =
-  "No encuentro esa información en el reglamento del condominio.\n\n¿Desea ser atendido por un representante de atención a cliente? Responda *Si* para confirmar.";
+  "No encuentro esa información en los documentos de ARC ni en el reglamento de construcción de tu condominio.\n\n¿Desea ser atendido por un representante de atención a cliente? Responda *Si* para confirmar.";
 
 export const HANDOFF_CONFIRMATION =
   "Estamos transfiriendo su solicitud al asesor de atención a cliente para que sea atendido a la brevedad posible.";

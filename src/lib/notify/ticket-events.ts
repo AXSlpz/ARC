@@ -1,7 +1,7 @@
 import db from "../db";
 import { sendEmail } from "./email";
 import { sendWhatsApp } from "./whatsapp";
-import { TICKET_STATUS_LABELS } from "../portal/types";
+import { TICKET_STATUS_LABELS, ticketRequestTitle } from "../portal/types";
 import type { Ticket, TicketStatus } from "../portal/types";
 
 function logNotification(input: {
@@ -83,7 +83,7 @@ export async function notifyTicketCreated(ticket: Ticket): Promise<void> {
   const html = emailShell(
     "Recibimos tu solicitud",
     `<p>Hola ${ticket.clientName ?? ""},</p>
-     <p>Registramos tu solicitud <strong>${ticket.ticketTypeName ?? ""}</strong> con folio
+     <p>Registramos tu solicitud <strong>${ticketRequestTitle(ticket)}</strong> con folio
      <strong>${ticket.folio}</strong>. La revisaremos y te notificaremos cualquier avance.</p>
      <p>Puedes seguir el estado desde tu portal.</p>`
   );
@@ -120,7 +120,7 @@ export async function notifyTicketAuthorized(
   const html = emailShell(
     "¡Tu solicitud fue autorizada!",
     `<p>Hola ${ticket.clientName ?? ""},</p>
-     <p>Tu solicitud <strong>${ticket.ticketTypeName ?? ""}</strong> (folio
+     <p>Tu solicitud <strong>${ticketRequestTitle(ticket)}</strong> (folio
      <strong>${ticket.folio}</strong>) ha sido <strong>autorizada</strong>.</p>${letterHtml}`
   );
   const wa = `ARC · ${ticket.folio}: *autorizada*.${hasLetter ? " Tu carta ya está en el portal." : ""}`;

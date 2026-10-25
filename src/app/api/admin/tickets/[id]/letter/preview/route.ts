@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 
   const { id } = await params;
   const ticketId = parseInt(id, 10);
-  const built = buildLetterHtml(ticketId);
+  const built = buildLetterHtml(ticketId, auth.id);
   if ("error" in built) {
     return NextResponse.json({ error: built.error }, { status: 404 });
   }

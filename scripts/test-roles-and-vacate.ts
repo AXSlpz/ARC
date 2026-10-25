@@ -25,6 +25,9 @@ assert.equal(can({ role: "atencion" }, "assign_chat_to_others"), false);
 assert.equal(can({ role: "atencion" }, "manage_tags"), false);
 assert.equal(can({ role: "atencion" }, "residentes"), true);
 assert.equal(can({ role: "admin" }, "advanced_admin"), true);
+assert.equal(can({ role: "atencion" }, "crm_prospectos"), true);
+assert.equal(can({ role: "atencion" }, "crm_write"), false);
+assert.equal(can({ role: "admin" }, "crm_write"), true);
 
 assert.equal(canManageRole("super_admin", "super_admin"), true);
 assert.equal(canManageRole("admin", "super_admin"), false);

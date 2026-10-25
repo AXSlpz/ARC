@@ -56,7 +56,7 @@ export function ResidenteSearch({
         value={local}
         onChange={(e) => handleChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-violet-200 bg-white pl-10 pr-9 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-400 focus:ring-1 focus:ring-violet-400 focus:outline-none"
+        className="w-full rounded-lg border border-violet-200 bg-white py-2 pl-10 pr-9 text-base text-gray-900 placeholder-gray-400 focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400 sm:text-sm"
       />
       {isSearching && local && (
         <span className="absolute right-8 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full border-2 border-violet-300 border-t-violet-600 animate-spin" />

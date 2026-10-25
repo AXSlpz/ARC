@@ -40,8 +40,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
-      <body className="antialiased min-h-dvh text-[var(--color-text)]">
+    <html lang="es" suppressHydrationWarning>
+      <body
+        className="antialiased min-h-dvh text-[var(--color-text)]"
+        suppressHydrationWarning
+      >
         <PwaRegister />
         <ToastProvider>{children}</ToastProvider>
       </body>
